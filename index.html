@@ -171,6 +171,12 @@
       var panel = document.getElementById(panelId);
       var button = panel.querySelector('.minimize-button');
       
+      // Panel relationships for repositioning
+      var panelRelationships = {
+        'map-panel': { dependent: 'asset-panel' },
+        'spectrum-panel': { dependent: 'raven-panel' }
+      };
+      
       if (panel.classList.contains('minimized')) {
         // Expanding
         panel.classList.remove('minimized');
@@ -182,6 +188,17 @@
         var content = panel.querySelector('.panel-content');
         content.style.display = 'flex';
         content.style.visibility = 'visible';
+        
+        // Reposition dependent panel if exists
+        if (panelRelationships[panelId] && panelRelationships[panelId].dependent) {
+          var dependentPanel = document.getElementById(panelRelationships[panelId].dependent);
+          if (dependentPanel) {
+            // Restore dependent panel's original position
+            if (dependentPanel.getAttribute('data-original-top')) {
+              dependentPanel.style.top = dependentPanel.getAttribute('data-original-top');
+            }
+          }
+        }
       } else {
         // Collapsing
         // Save original heights if not already stored
@@ -203,6 +220,24 @@
         var content = panel.querySelector('.panel-content');
         content.style.display = 'none';
         content.style.visibility = 'hidden';
+        
+        // Reposition dependent panel if exists
+        if (panelRelationships[panelId] && panelRelationships[panelId].dependent) {
+          var dependentPanel = document.getElementById(panelRelationships[panelId].dependent);
+          if (dependentPanel) {
+            // Store original top position if not already stored
+            if (!dependentPanel.getAttribute('data-original-top')) {
+              dependentPanel.setAttribute('data-original-top', window.getComputedStyle(dependentPanel).top);
+            }
+            
+            // Calculate new top position (parent panel's top + header height + gap)
+            var parentTop = parseInt(window.getComputedStyle(panel).top);
+            var newTop = (parentTop + 34 + 10) + 'px'; // 34px is header height, 10px is gap
+            
+            // Apply new top position
+            dependentPanel.style.top = newTop;
+          }
+        }
       }
       
       console.log('After toggle - panel:', panel.id, 'minimized:', panel.classList.contains('minimized'));
