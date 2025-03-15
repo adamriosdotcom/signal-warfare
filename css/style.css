@@ -324,37 +324,6 @@ input:focus, textarea:focus, select:focus {
   gap: 6px; /* Smaller gap */
 }
 
-.tactical-advantage-compact {
-  display: flex;
-  align-items: center;
-  gap: 6px; /* Smaller gap */
-  margin-left: 0; /* No extra margin needed with proper spacing */
-}
-
-.tactical-advantage-compact .advantage-bar {
-  width: 90px; /* Slightly smaller width */
-  height: 18px; /* Slightly smaller height */
-  background-color: rgba(20, 29, 38, 0.7);
-  border-radius: 4px;
-  overflow: hidden;
-  border: 1px solid var(--border-light);
-}
-
-.tactical-advantage-compact .advantage-progress {
-  height: 100%;
-  width: 50%;
-  background: linear-gradient(90deg, 
-    rgba(255, 70, 85, 0.9) 0%, 
-    rgba(102, 102, 102, 0.9) 50%,
-    rgba(0, 132, 255, 0.9) 100%
-  );
-  position: relative;
-}
-
-.tactical-advantage-compact .advantage-value {
-  min-width: 35px;
-}
-
 .status-label {
   font-size: 10px; /* Smaller font */
   color: var(--text-secondary);
@@ -450,9 +419,6 @@ input:focus, textarea:focus, select:focus {
     padding: 2px 4px; /* Smaller padding */
   }
   
-  .tactical-advantage-compact .advantage-bar {
-    width: 70px; /* Narrower bar */
-  }
   
   #map-panel, #asset-panel, #spectrum-panel, #raven-panel {
     width: calc(50% - 10px); /* Adjust for padding */

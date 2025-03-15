@@ -686,32 +686,6 @@ class GameState {
     const seconds = Math.floor(this.missionTimeRemaining % 60);
     document.getElementById('mission-time').textContent = 
       `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-    
-    // Update tactical advantage display
-    this.updateTacticalAdvantageDisplay();
-  }
-  
-  // Update tactical advantage display
-  updateTacticalAdvantageDisplay() {
-    const advantageBar = document.querySelector('.advantage-progress');
-    if (advantageBar) {
-      advantageBar.style.width = `${this.tacticalAdvantage}%`;
-      
-      // Update color based on advantage
-      if (this.tacticalAdvantage < 40) {
-        advantageBar.style.backgroundColor = CONFIG.ui.tacticalAdvantage.colors.enemy;
-      } else if (this.tacticalAdvantage > 60) {
-        advantageBar.style.backgroundColor = CONFIG.ui.tacticalAdvantage.colors.ally;
-      } else {
-        advantageBar.style.backgroundColor = CONFIG.ui.tacticalAdvantage.colors.neutral;
-      }
-      
-      // Update text value
-      const advantageValue = document.querySelector('.advantage-value');
-      if (advantageValue) {
-        advantageValue.textContent = `${this.tacticalAdvantage}%`;
-      }
-    }
   }
   
   // Event system
