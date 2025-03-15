@@ -18,6 +18,12 @@ This document contains essential information for AI assistants working on this p
 - Use imperative mood (Add feature, not Added feature)
 - Example: `feat: add RF propagation visualization`
 
+### Version Control Workflow
+- Commit after each individual change to the codebase
+- Push to GitHub immediately after each commit
+- This ensures every change is tracked and can be easily reverted if needed
+- Each commit should represent a single logical change
+
 ### Branch Strategy
 - Feature branches: `feature/short-description`
 - Bug fixes: `fix/short-description`
