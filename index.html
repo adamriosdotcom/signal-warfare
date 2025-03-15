@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIGNAL WARFARE</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="app">
+    <!-- Battlefield View (THREE.js canvas) -->
+    <canvas id="battlefield-view" class="battlefield-view"></canvas>
+    
+    <!-- Visual Effects -->
+    <div id="scanline-overlay"></div>
+    <div id="alert-container"></div>
+    
+    <!-- Tactical Advantage Indicator -->
+    <div id="tactical-advantage">
+      <div class="advantage-bar">
+        <div class="advantage-progress"></div>
+      </div>
+      <div class="advantage-labels">
+        <div class="advantage-label">ENEMY</div>
+        <div class="advantage-value">50%</div>
+        <div class="advantage-label">ALLIED</div>
+      </div>
+    </div>
+    
+    <!-- Header Panel -->
+    <div id="header-panel">
+      <div class="mission-title">SIGNAL WARFARE</div>
+      <div class="header-items">
+        <div class="header-item">
+          <span class="status-label">JAMMERS:</span>
+          <span class="status-value" id="jammer-count">3</span>
+        </div>
+        <div class="header-item">
+          <span class="status-label">DRONES:</span>
+          <span class="status-value" id="drone-count">0</span>
+        </div>
+        <div class="header-item">
+          <span class="status-label">MISSION:</span>
+          <span class="status-value" id="mission-time">05:00</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Tactical Map Panel -->
+    <div id="map-panel" class="panel">
+      <div class="panel-header">
+        <div class="panel-title">TACTICAL MAP</div>
+        <div class="panel-controls">
+          <button class="panel-control minimize-button">_</button>
+        </div>
+      </div>
+      <div class="panel-content">
+        <div id="map-container">
+          <canvas id="map-canvas"></canvas>
+        </div>
+        <div class="map-controls">
+          <button class="map-toggle active" data-layer="terrain">TERRAIN</button>
+          <button class="map-toggle" data-layer="rf">RF</button>
+          <button class="map-toggle" data-layer="enemy">ENEMY</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Spectrum Analyzer Panel -->
+    <div id="spectrum-panel" class="panel">
+      <div class="panel-header">
+        <div class="panel-title">SPECTRUM ANALYZER</div>
+        <div class="panel-controls">
+          <button class="panel-control minimize-button">_</button>
+        </div>
+      </div>
+      <div class="panel-content">
+        <div id="spectrum-display"></div>
+        <div class="frequency-bands">
+          <div class="band" data-freq="433">433MHz</div>
+          <div class="band" data-freq="915">915MHz</div>
+          <div class="band" data-freq="1575">1.5GHz</div>
+          <div class="band" data-freq="2400">2.4GHz</div>
+          <div class="band" data-freq="5800">5.8GHz</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Asset Control Panel -->
+    <div id="asset-panel" class="panel">
+      <div class="panel-header">
+        <div class="panel-title">ASSET CONTROL</div>
+        <div class="panel-controls">
+          <button class="panel-control minimize-button">_</button>
+        </div>
+      </div>
+      <div class="panel-content">
+        <div class="asset-tabs">
+          <button class="asset-tab active" data-tab="jammers">JAMMERS</button>
+          <button class="asset-tab" data-tab="drones">DRONES</button>
+          <button class="asset-tab" data-tab="sensors">SENSORS</button>
+        </div>
+        <div class="asset-content" id="jammers-content">
+          <div class="status-indicators">
+            <div class="status-text">
+              <span class="status-label">AVAILABLE:</span>
+              <span class="status-value" id="available-jammers">3</span>
+            </div>
+            <div class="status-text">
+              <span class="status-label">COOLDOWN:</span>
+              <span class="status-value" id="cooldown-timer">0s</span>
+            </div>
+          </div>
+          
+          <div class="jammer-selector">
+            <div class="selector-title">SELECT JAMMER TYPE:</div>
+            <div class="jammer-buttons">
+              <button id="std-jammer" class="jammer-button">STD</button>
+              <button id="dir-jammer" class="jammer-button">DIR</button>
+              <button id="pls-jammer" class="jammer-button">PLS</button>
+              <button id="mob-jammer" class="jammer-button">MOB</button>
+            </div>
+          </div>
+          
+          <div class="action-buttons">
+            <button id="cancel-placement" class="action-button">CANCEL</button>
+            <button id="clear-jammers" class="action-button">CLEAR ALL</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- RAVEN AI Assistant Panel -->
+    <div id="raven-panel" class="panel">
+      <div class="panel-header">
+        <div class="panel-title">RAVEN ASSISTANT</div>
+        <div class="panel-controls">
+          <button class="panel-control minimize-button">_</button>
+        </div>
+      </div>
+      <div class="panel-content">
+        <div id="raven-output">
+          <div class="message system">RAVEN AI ASSISTANT ONLINE</div>
+          <div class="message system">Combat electronic systems online. Awaiting your orders, Commander.</div>
+        </div>
+        <div id="raven-suggestions">
+          <!-- Dynamically populated suggestions -->
+        </div>
+        <div id="raven-input-container">
+          <input type="text" id="raven-input" placeholder="Enter command or select suggestion...">
+          <button id="raven-send">▶</button>
+          <button id="raven-settings">⚙️</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Script Tags -->
+  <script src="js/core/config.js"></script>
+  <script src="js/core/ecs/components.js"></script>
+  <script src="js/core/ecs/ecs.js"></script>
+  <script src="js/core/ecs/systems.js"></script>
+  <script src="js/core/gameState.js"></script>
+  <script src="js/core/main.js"></script>
+  <script src="js/entities/drone.js"></script>
+  <script src="js/entities/jammer.js"></script>
+  <script src="js/rf/propagation.js"></script>
+  <script src="js/ui/interface.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
