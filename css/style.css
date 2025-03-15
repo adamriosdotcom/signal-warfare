@@ -155,7 +155,7 @@ html, body {
 
 .panel-content {
   flex: 1;
-  padding: 16px;
+  padding: 12px; /* Reduced padding */
   overflow-y: auto;
 }
 
@@ -300,8 +300,9 @@ input:focus, textarea:focus, select:focus {
   top: calc(60% + 20px);
   left: 20px;
   width: 35%;
-  height: calc(40% - 40px);
+  height: calc(40% - 60px); /* More room at the bottom */
   min-width: 300px;
+  min-height: 230px; /* Ensure minimum height */
 }
 
 #raven-panel {
@@ -422,13 +423,13 @@ input:focus, textarea:focus, select:focus {
 .asset-tabs {
   display: flex;
   gap: 2px;
-  margin-bottom: 16px;
+  margin-bottom: 8px; /* Reduced margin */
 }
 
 .asset-tab {
-  padding: 6px 12px;
+  padding: 4px 8px; /* Smaller padding */
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10px; /* Smaller font */
   background-color: var(--bg-light);
   border: none;
   color: var(--text-secondary);
@@ -444,18 +445,18 @@ input:focus, textarea:focus, select:focus {
 .jammer-buttons {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  grid-gap: 8px;
-  margin: 10px 0;
+  grid-gap: 6px; /* Smaller gap */
+  margin: 6px 0; /* Smaller margin */
 }
 
 .jammer-button {
-  height: 44px;
+  height: 36px; /* Smaller button height */
   background-color: var(--bg-card-alt);
   border: 1px solid var(--border-light);
   color: var(--text-primary);
   font-weight: 500;
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: 12px; /* Smaller font */
   cursor: pointer;
 }
 
@@ -468,7 +469,7 @@ input:focus, textarea:focus, select:focus {
 .status-indicators {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 8px; /* Less margin */
 }
 
 .status-text {
@@ -478,8 +479,8 @@ input:focus, textarea:focus, select:focus {
 }
 
 .selector-title {
-  margin-top: 10px;
-  margin-bottom: 5px;
+  margin-top: 8px; /* Less margin */
+  margin-bottom: 4px; /* Less margin */
   font-size: 12px;
   color: var(--text-secondary);
   font-weight: 500;
@@ -488,7 +489,14 @@ input:focus, textarea:focus, select:focus {
 .action-buttons {
   display: flex;
   justify-content: space-between;
-  margin-top: 16px;
+  margin-top: 12px; /* Less margin */
+  gap: 8px;
+}
+
+.action-button {
+  height: 32px; /* Smaller action buttons */
+  padding: 0 10px;
+  font-size: 11px; /* Smaller font */
 }
 
 #raven-output {
