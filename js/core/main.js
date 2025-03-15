@@ -135,6 +135,12 @@ class GameEngine {
   // Setup post-processing effects
   setupPostProcessing() {
     try {
+      // Check if the necessary classes are available
+      if (!window.THREE || !window.THREE.EffectComposer) {
+        console.warn('Post-processing classes not available');
+        return;
+      }
+      
       // Set up composer
       this.composer = new THREE.EffectComposer(this.renderer);
       
@@ -155,8 +161,10 @@ class GameEngine {
       const outputPass = new THREE.ShaderPass(THREE.GammaCorrectionShader);
       outputPass.renderToScreen = true;
       this.composer.addPass(outputPass);
+      
+      console.log('Post-processing initialized successfully');
     } catch (error) {
-      console.warn('Post-processing not available:', error);
+      console.warn('Post-processing initialization failed:', error);
       // Fall back to standard rendering
     }
   }

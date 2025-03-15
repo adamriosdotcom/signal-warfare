@@ -16,10 +16,22 @@ const PORT = process.env.PORT || 8000;
 // Parse JSON request bodies
 app.use(express.json());
 
-// Serve static files
-app.use(express.static(path.join(__dirname, './')));
+// Serve static files with proper caching headers
+app.use(express.static(path.join(__dirname, './'), {
+  etag: true,
+  lastModified: true,
+  setHeaders: (res, path) => {
+    // Set more permissive CORS headers for static assets
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    
+    // Add cache control for better performance
+    if (path.endsWith('.js') || path.endsWith('.css')) {
+      res.setHeader('Cache-Control', 'public, max-age=300'); // 5 minutes
+    }
+  }
+}));
 
-// Handle CORS for development
+// Handle CORS for API requests
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
