@@ -14,6 +14,7 @@ This folder contains all documentation and technical context for the SIGNAL WARF
 - [**RF_PROPAGATION.md**](./RF_PROPAGATION.md) - Explains the RF propagation physics models and signal visualization.
 - [**INTERFACE_COMPONENTS.md**](./INTERFACE_COMPONENTS.md) - Describes the UI components and their implementation.
 - [**AI_AGENT_INTEGRATION.md**](./AI_AGENT_INTEGRATION.md) - Outlines how to make the game fully playable by AI agents.
+- [**CLAUDE.md**](./CLAUDE.md) - Instructions for Claude and other AI assistants working on this project.
 
 ## Using This Documentation
 
