@@ -255,13 +255,7 @@ const CONFIG = {
   
   // UI settings
   ui: {
-    // Panel positions
-    panels: {
-      'map': { top: 100, left: 20, width: '30%', height: 'calc(60% - 100px)' },
-      'spectrum': { top: 100, right: 20, width: '30%', height: 240 },
-      'asset': { top: 'calc(60% + 20px)', left: 20, width: '30%', height: 'calc(40% - 40px)' },
-      'raven': { top: 'calc(100% - 320px)', right: 20, width: '30%', height: 300 }
-    },
+    // Panel positions are now defined in CSS
     
     // Map settings
     map: {

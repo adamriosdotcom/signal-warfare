@@ -414,18 +414,10 @@ class GameEngine {
     this.initializePanelPositions();
   }
   
-  // Initialize panel positions based on config
+  // Panel positions are now defined in CSS
   initializePanelPositions() {
-    const panels = CONFIG.ui.panels;
-    
-    for (const [panelId, position] of Object.entries(panels)) {
-      const panel = document.getElementById(`${panelId}-panel`);
-      if (panel) {
-        for (const [prop, value] of Object.entries(position)) {
-          panel.style[prop] = value;
-        }
-      }
-    }
+    // Not needed anymore - we're using CSS to position panels
+    console.log('Panel positions defined in CSS');
   }
   
   // Create terrain
