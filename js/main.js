@@ -4,23 +4,25 @@
  * This file loads the THREE.js library dynamically and initializes the application.
  */
 
-// Directly include THREE.js script tag in index.html
-// Let the browser know that we expect THREE to be available
-const checkThreeJsLoaded = () => {
+// Simple check for THREE.js
+function checkThreeJs() {
+  // Check if THREE is available
   if (window.THREE) {
-    console.log('THREE.js loaded successfully');
-    // Initialize post-processing if needed
-    if (window.gameEngine && window.gameEngine.setupPostProcessing) {
-      window.gameEngine.setupPostProcessing();
-    }
+    console.log('THREE.js is available');
+    return true;
   } else {
     console.error('THREE.js not available');
-    displayErrorMessage('THREE.js library not loaded. Please check the script inclusion in the HTML file.');
+    displayErrorMessage('THREE.js library not loaded. Please ensure you have internet access.');
+    return false;
   }
-};
+}
 
-// Check if THREE.js is loaded after a short delay
-setTimeout(checkThreeJsLoaded, 1000);
+// Check THREE.js on load
+window.addEventListener('load', () => {
+  if (checkThreeJs() && window.gameEngine) {
+    console.log('Initializing game with THREE.js');
+  }
+});
 
 // Display startup message
 function displayStartupMessage() {

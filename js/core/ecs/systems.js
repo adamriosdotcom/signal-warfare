@@ -166,12 +166,18 @@ class RenderSystem extends System {
   
   render() {
     if (this.renderer && this.scene && this.camera) {
+      // Use standard rendering for now
+      this.renderer.render(this.scene, this.camera);
+      
+      // Post-processing disabled for compatibility
+      /*
       // Check if we have a composer (for post-processing)
       if (window.gameEngine && window.gameEngine.composer) {
         window.gameEngine.composer.render();
       } else {
         this.renderer.render(this.scene, this.camera);
       }
+      */
     }
   }
 }

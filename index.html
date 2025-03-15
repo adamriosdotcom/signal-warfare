@@ -159,13 +159,17 @@
   </div>
 
   <!-- Script Tags -->
-  <!-- THREE.js and extensions -->
-  <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/postprocessing/EffectComposer.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/postprocessing/RenderPass.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/postprocessing/ShaderPass.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/postprocessing/UnrealBloomPass.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/shaders/GammaCorrectionShader.js"></script>
+  <!-- THREE.js (simpler approach for compatibility) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.150.0/three.min.js"></script>
+  
+  <!-- Post-processing is optional for now -->
+  <!-- We can add it back later if needed -->
+  
+  <script>
+    // Signal that THREE.js is ready
+    window.threeJsReady = true;
+    console.log('THREE.js loaded');
+  </script>
   
   <!-- Application scripts -->
   <script src="js/core/config.js"></script>

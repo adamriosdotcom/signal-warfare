@@ -132,15 +132,13 @@ class GameEngine {
     window.addEventListener('resize', this.onWindowResize.bind(this));
   }
   
-  // Setup post-processing effects
+  // Setup post-processing effects - simplified for now
   setupPostProcessing() {
+    // For now, we're disabling post-processing to ensure basic functionality works
+    console.log('Post-processing disabled for compatibility');
+    
+    /*
     try {
-      // Check if the necessary classes are available
-      if (!window.THREE || !window.THREE.EffectComposer) {
-        console.warn('Post-processing classes not available');
-        return;
-      }
-      
       // Set up composer
       this.composer = new THREE.EffectComposer(this.renderer);
       
@@ -167,6 +165,7 @@ class GameEngine {
       console.warn('Post-processing initialization failed:', error);
       // Fall back to standard rendering
     }
+    */
   }
   
   // Setup enhanced camera controls
