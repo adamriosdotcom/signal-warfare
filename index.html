@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SIGNAL WARFARE</title>
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=1.0.1">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -17,18 +17,6 @@
     <!-- Visual Effects -->
     <div id="scanline-overlay"></div>
     <div id="alert-container"></div>
-    
-    <!-- Tactical Advantage Indicator -->
-    <div id="tactical-advantage">
-      <div class="advantage-bar">
-        <div class="advantage-progress"></div>
-      </div>
-      <div class="advantage-labels">
-        <div class="advantage-label">ENEMY</div>
-        <div class="advantage-value">50%</div>
-        <div class="advantage-label">ALLIED</div>
-      </div>
-    </div>
     
     <!-- Header Panel -->
     <div id="header-panel">
@@ -46,22 +34,29 @@
           <span class="status-label">MISSION:</span>
           <span class="status-value" id="mission-time">05:00</span>
         </div>
+        <div class="header-item tactical-advantage-compact">
+          <span class="status-label">TACTICAL:</span>
+          <div class="advantage-bar">
+            <div class="advantage-progress"></div>
+          </div>
+          <span class="advantage-value">50%</span>
+        </div>
       </div>
     </div>
     
     <!-- Tactical Map Panel -->
-    <div id="map-panel" class="panel">
+    <div id="map-panel" class="panel" data-original-height="290px" data-original-min-height="290px" data-original-max-height="290px" style="height: 290px; min-height: 290px; max-height: 290px; overflow: hidden;">
       <div class="panel-header">
         <div class="panel-title">TACTICAL MAP</div>
         <div class="panel-controls">
-          <button class="panel-control minimize-button">_</button>
+          <button class="panel-control minimize-button" onclick="return toggleMinimize('map-panel');">_</button>
         </div>
       </div>
-      <div class="panel-content">
-        <div id="map-container">
+      <div class="panel-content" style="padding: 8px 8px 0 8px; margin: 0; height: auto !important; max-height: 255px !important; overflow: hidden;">
+        <div id="map-container" style="height: 230px; margin: 0 0 3px 0; padding: 0;">
           <canvas id="map-canvas"></canvas>
         </div>
-        <div class="map-controls">
+        <div class="map-controls" style="margin: 2px 0 0 0; padding: 0;">
           <button class="map-toggle active" data-layer="terrain">TERRAIN</button>
           <button class="map-toggle" data-layer="rf">RF</button>
           <button class="map-toggle" data-layer="enemy">ENEMY</button>
@@ -70,16 +65,16 @@
     </div>
     
     <!-- Spectrum Analyzer Panel -->
-    <div id="spectrum-panel" class="panel">
+    <div id="spectrum-panel" class="panel" data-original-height="250px" data-original-min-height="250px" data-original-max-height="250px" style="height: 250px; min-height: 250px; max-height: 250px; overflow: hidden;">
       <div class="panel-header">
         <div class="panel-title">SPECTRUM ANALYZER</div>
         <div class="panel-controls">
-          <button class="panel-control minimize-button">_</button>
+          <button class="panel-control minimize-button" onclick="return toggleMinimize('spectrum-panel');">_</button>
         </div>
       </div>
-      <div class="panel-content">
-        <div id="spectrum-display"></div>
-        <div class="frequency-bands">
+      <div class="panel-content" style="padding: 8px 8px 0 8px; margin: 0; height: auto !important; max-height: 215px !important; overflow: hidden;">
+        <div id="spectrum-display" style="height: 180px; margin: 0 0 3px 0; padding: 0;"></div>
+        <div class="frequency-bands" style="margin: 0; padding: 0;">
           <div class="band" data-freq="433">433MHz</div>
           <div class="band" data-freq="915">915MHz</div>
           <div class="band" data-freq="1575">1.5GHz</div>
@@ -90,21 +85,21 @@
     </div>
     
     <!-- Asset Control Panel -->
-    <div id="asset-panel" class="panel">
+    <div id="asset-panel" class="panel" data-original-height="185px" data-original-min-height="185px" data-original-max-height="185px" style="height: 185px; min-height: 185px; max-height: 185px; overflow: hidden;">
       <div class="panel-header">
         <div class="panel-title">ASSET CONTROL</div>
         <div class="panel-controls">
-          <button class="panel-control minimize-button">_</button>
+          <button class="panel-control minimize-button" onclick="return toggleMinimize('asset-panel');">_</button>
         </div>
       </div>
-      <div class="panel-content">
-        <div class="asset-tabs">
+      <div class="panel-content" style="padding-bottom: 0; overflow: hidden; height: auto !important; max-height: 150px !important;">
+        <div class="asset-tabs" style="margin-bottom: 3px;">
           <button class="asset-tab active" data-tab="jammers">JAMMERS</button>
           <button class="asset-tab" data-tab="drones">DRONES</button>
           <button class="asset-tab" data-tab="sensors">SENSORS</button>
         </div>
-        <div class="asset-content" id="jammers-content">
-          <div class="status-indicators">
+        <div class="asset-content" id="jammers-content" style="margin: 0; padding: 0; height: auto !important;">
+          <div class="status-indicators" style="margin-bottom: 2px;">
             <div class="status-text">
               <span class="status-label">AVAILABLE:</span>
               <span class="status-value" id="available-jammers">3</span>
@@ -115,9 +110,9 @@
             </div>
           </div>
           
-          <div class="jammer-selector">
-            <div class="selector-title">SELECT JAMMER TYPE:</div>
-            <div class="jammer-buttons">
+          <div class="jammer-selector" style="margin-bottom: 4px;">
+            <div class="selector-title" style="margin: 2px 0;">SELECT JAMMER TYPE:</div>
+            <div class="jammer-buttons" style="margin: 2px 0;">
               <button id="std-jammer" class="jammer-button">STD</button>
               <button id="dir-jammer" class="jammer-button">DIR</button>
               <button id="pls-jammer" class="jammer-button">PLS</button>
@@ -125,7 +120,7 @@
             </div>
           </div>
           
-          <div class="action-buttons">
+          <div class="action-buttons" style="margin: 4px 0 0 0;">
             <button id="cancel-placement" class="action-button">CANCEL</button>
             <button id="clear-jammers" class="action-button">CLEAR ALL</button>
           </div>
@@ -134,23 +129,23 @@
     </div>
     
     <!-- RAVEN AI Assistant Panel -->
-    <div id="raven-panel" class="panel">
+    <div id="raven-panel" class="panel" data-original-height="260px" data-original-min-height="260px" data-original-max-height="260px" style="height: 260px; min-height: 260px; max-height: 260px; overflow: hidden;">
       <div class="panel-header">
         <div class="panel-title">RAVEN ASSISTANT</div>
         <div class="panel-controls">
-          <button class="panel-control minimize-button">_</button>
+          <button class="panel-control minimize-button" onclick="return toggleMinimize('raven-panel');">_</button>
         </div>
       </div>
-      <div class="panel-content">
-        <div id="raven-output">
+      <div class="panel-content" style="padding: 8px 8px 0 8px; margin: 0; height: auto; max-height: 225px; overflow: hidden;">
+        <div id="raven-output" style="height: 190px; margin: 0 0 4px 0; padding: 4px 4px 0 4px;">
           <div class="message system">RAVEN AI ASSISTANT ONLINE</div>
           <div class="message system">Combat electronic systems online. Awaiting your orders, Commander.</div>
         </div>
-        <div id="raven-suggestions">
+        <div id="raven-suggestions" style="margin: 0 0 4px 0; padding: 0;">
           <!-- Dynamically populated suggestions -->
         </div>
-        <div id="raven-input-container">
-          <input type="text" id="raven-input" placeholder="Enter command or select suggestion...">
+        <div id="raven-input-container" style="margin: 0; padding: 0;">
+          <input type="text" id="raven-input" placeholder="Command...">
           <button id="raven-send">▶</button>
           <button id="raven-settings">⚙️</button>
         </div>
@@ -169,6 +164,51 @@
     // Signal that THREE.js is ready
     window.threeJsReady = true;
     console.log('THREE.js loaded');
+    
+    // Global minimize function that can be called directly from HTML
+    window.toggleMinimize = function(panelId) {
+      console.log('Direct minimize toggle called for panel:', panelId);
+      var panel = document.getElementById(panelId);
+      var button = panel.querySelector('.minimize-button');
+      
+      if (panel.classList.contains('minimized')) {
+        // Expanding
+        panel.classList.remove('minimized');
+        button.textContent = '_';
+        panel.style.height = panel.getAttribute('data-original-height');
+        panel.style.minHeight = panel.getAttribute('data-original-min-height');
+        panel.style.maxHeight = panel.getAttribute('data-original-max-height');
+        
+        var content = panel.querySelector('.panel-content');
+        content.style.display = 'flex';
+        content.style.visibility = 'visible';
+      } else {
+        // Collapsing
+        // Save original heights if not already stored
+        if (!panel.getAttribute('data-original-height')) {
+          panel.setAttribute('data-original-height', panel.style.height || '');
+          panel.setAttribute('data-original-min-height', panel.style.minHeight || '');
+          panel.setAttribute('data-original-max-height', panel.style.maxHeight || '');
+        }
+        
+        panel.classList.add('minimized');
+        button.textContent = '+';
+        
+        // Use fixed 34px height (exactly header height) for minimized panels
+        panel.style.height = '34px';
+        panel.style.minHeight = '34px';
+        panel.style.maxHeight = '34px';
+        panel.style.paddingBottom = '0';
+        
+        var content = panel.querySelector('.panel-content');
+        content.style.display = 'none';
+        content.style.visibility = 'hidden';
+      }
+      
+      console.log('After toggle - panel:', panel.id, 'minimized:', panel.classList.contains('minimized'));
+      console.log('Height:', panel.style.height, 'Min-height:', panel.style.minHeight);
+      return false;
+    }
   </script>
   
   <!-- Application scripts -->

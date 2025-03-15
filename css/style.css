@@ -107,56 +107,123 @@ html, body {
   flex-direction: column;
   overflow: hidden;
   z-index: 10;
+  transition: height var(--transition-medium), width var(--transition-medium), min-height var(--transition-medium); /* Smooth transitions when minimizing/maximizing */
+  padding: 0; /* No padding anywhere */
 }
 
 .panel-header {
   background-color: var(--panel-header);
   border-bottom: 1px solid var(--panel-border);
-  padding: 8px 12px;
+  padding: 0; /* No padding */
   display: flex;
   justify-content: space-between;
   align-items: center;
+  height: 34px; /* Keep original height */
+  cursor: move; /* Indicate draggable */
+  width: 100%; /* Ensure full width */
+  margin: 0; /* No margins */
+  position: relative; /* For absolute positioning elements inside */
+  border-top-left-radius: var(--panel-radius); /* Match panel radius */
+  border-top-right-radius: var(--panel-radius); /* Match panel radius */
+}
+
+.panel.minimized .panel-header {
+  min-height: 34px;
+  height: 34px;
+  border-bottom: none; /* Remove border when minimized */
+  padding: 0; /* No padding */
+  width: 100%; /* Full width */
+  border-radius: var(--panel-radius); /* Match panel radius */
 }
 
 .panel-title {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 12px; /* Slightly larger font for visibility */
   font-weight: 600;
   letter-spacing: 0.5px;
   color: var(--text-primary);
+  padding-left: 10px; /* Add padding to title instead of header */
+  white-space: nowrap; /* Prevent text wrapping */
 }
 
 .panel-controls {
   display: flex;
   gap: 6px;
+  padding-right: 10px; /* Add padding to controls instead of header */
 }
 
 .panel-control {
   background: rgba(30, 41, 59, 0.4);
   border: 1px solid var(--panel-border);
   color: var(--text-tertiary);
-  width: 20px;
-  height: 20px;
+  width: 18px; /* Smaller button */
+  height: 18px; /* Smaller button */
   border-radius: 3px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 12px; /* Smaller font */
   line-height: 1;
   transition: all var(--transition-fast);
+  user-select: none; /* Prevent text selection */
 }
 
 .panel-control:hover {
   background-color: rgba(255, 255, 255, 0.1);
   color: var(--text-primary);
   border-color: var(--accent-primary);
+  transform: translateY(-1px); /* Subtle hover effect */
 }
 
 .panel-content {
   flex: 1;
-  padding: 12px; /* Reduced padding */
+  padding: 8px; /* Content still needs padding */
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  height: calc(100% - 34px); /* Account for header height */
+  margin: 0;
+  /* Adjust for the extended header */
+  margin-top: 1px; /* Compensate for the header moving up */
+}
+
+/* Minimized panel styles */
+/* Debug panels - disabled
+.debug-panel {
+  border: 3px solid red !important;
+}
+*/
+
+/* Extra aggressive minimized panel style */
+.panel.minimized {
+  height: 34px !important; /* Exactly header height */
+  min-height: 34px !important;
+  max-height: 34px !important;
+  overflow: hidden !important;
+  border-radius: var(--panel-radius);
+  padding-bottom: 0 !important; /* No bottom padding */
+}
+
+/* Even more specific selector for !important style override */
+div.panel.minimized,
+#map-panel.minimized,
+#spectrum-panel.minimized,
+#asset-panel.minimized,
+#raven-panel.minimized {
+  height: 34px !important; /* Exactly header height */
+  min-height: 34px !important;
+  max-height: 34px !important;
+}
+
+/* Hide content in minimized panels */
+.panel.minimized .panel-content {
+  display: none !important;
+  height: 0 !important;
+  max-height: 0 !important;
+  overflow: hidden !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
 }
 
 /* ==================== Form Controls ==================== */
@@ -221,23 +288,23 @@ input:focus, textarea:focus, select:focus {
 /* ==================== Header Panel ==================== */
 #header-panel {
   position: absolute;
-  top: 20px;
-  left: 20px;
-  right: 20px;
-  height: 64px;
+  top: 5px; /* Small padding from top */
+  left: 10px; /* Padding from left */
+  right: 10px; /* Padding from right */
+  height: 46px; /* Adjusted height */
   display: flex;
   justify-content: space-between;
   align-items: center;
   background-color: var(--panel-bg);
   border: 1px solid var(--panel-border);
-  border-radius: var(--panel-radius);
-  padding: 0 24px;
+  border-radius: var(--panel-radius); /* Restore border radius */
+  padding: 0 20px; /* Smaller padding */
   box-shadow: var(--shadow-medium);
   z-index: 20;
 }
 
 .mission-title {
-  font-size: 18px;
+  font-size: 16px; /* Smaller font */
   font-weight: 600;
   font-family: var(--font-mono);
   letter-spacing: 1px;
@@ -247,17 +314,49 @@ input:focus, textarea:focus, select:focus {
 
 .header-items {
   display: flex;
-  gap: 24px;
+  gap: 20px; /* Slightly smaller gap */
+  align-items: center;
 }
 
 .header-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px; /* Smaller gap */
+}
+
+.tactical-advantage-compact {
+  display: flex;
+  align-items: center;
+  gap: 6px; /* Smaller gap */
+  margin-left: 0; /* No extra margin needed with proper spacing */
+}
+
+.tactical-advantage-compact .advantage-bar {
+  width: 90px; /* Slightly smaller width */
+  height: 18px; /* Slightly smaller height */
+  background-color: rgba(20, 29, 38, 0.7);
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--border-light);
+}
+
+.tactical-advantage-compact .advantage-progress {
+  height: 100%;
+  width: 50%;
+  background: linear-gradient(90deg, 
+    rgba(255, 70, 85, 0.9) 0%, 
+    rgba(102, 102, 102, 0.9) 50%,
+    rgba(0, 132, 255, 0.9) 100%
+  );
+  position: relative;
+}
+
+.tactical-advantage-compact .advantage-value {
+  min-width: 35px;
 }
 
 .status-label {
-  font-size: 12px;
+  font-size: 10px; /* Smaller font */
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -265,13 +364,13 @@ input:focus, textarea:focus, select:focus {
 
 .status-value {
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: 12px; /* Smaller font */
   font-weight: 600;
   color: var(--text-primary);
   background-color: rgba(20, 29, 38, 0.7);
-  padding: 4px 8px;
+  padding: 3px 6px; /* Smaller padding */
   border-radius: 4px;
-  min-width: 40px;
+  min-width: 32px; /* Smaller min width */
   text-align: center;
   border: 1px solid var(--border-light);
 }
@@ -279,85 +378,126 @@ input:focus, textarea:focus, select:focus {
 /* ==================== Panel Layout ==================== */
 #map-panel {
   position: absolute;
-  top: 100px;
-  left: 20px;
-  width: 35%;
-  height: calc(60% - 120px);
+  top: 66px; /* 10px gap after header */
+  left: 10px; /* Add padding from left edge */
+  width: calc(35% - 15px); /* Adjust width for padding */
+  height: 290px; /* Fixed height */
   min-width: 300px;
 }
 
 #spectrum-panel {
   position: absolute;
-  top: 100px;
-  right: 20px;
-  width: 35%;
-  height: 300px;
+  top: 66px; /* 10px gap after header */
+  right: 10px; /* Add padding from right edge */
+  width: calc(35% - 15px); /* Adjust width for padding */
+  height: 250px; /* Fixed height */
   min-width: 300px;
 }
 
 #asset-panel {
   position: absolute;
-  top: calc(60% + 20px);
-  left: 20px;
-  width: 35%;
-  height: calc(40% - 100px); /* Much more room at the bottom to avoid overlap */
+  top: calc(66px + 290px + 10px); /* 10px after map panel (header + map-height + gap) */
+  left: 10px; /* Add padding from left edge */
+  width: calc(35% - 15px); /* Adjust width for padding */
+  height: 185px; /* Fixed height */
   min-width: 300px;
-  min-height: 210px; /* Smaller minimum height */
   z-index: 15; /* Ensure proper z-index order */
+  border-radius: var(--panel-radius); /* Restore all border radius */
 }
 
 #raven-panel {
   position: absolute;
-  top: calc(100px + 320px);
-  right: 20px;
-  width: 35%;
-  height: calc(100% - 460px);
+  top: calc(66px + 250px + 10px); /* 10px after spectrum panel (header + spectrum-height + gap) */
+  right: 10px; /* Add padding from right edge */
+  width: calc(35% - 15px); /* Adjust width for padding */
+  height: 260px; /* Fixed height */
   min-width: 300px;
+  border-radius: var(--panel-radius); /* Restore all border radius */
 }
 
 /* ==================== Responsive Layout ==================== */
 @media (max-width: 1366px) {
-  #map-panel, #asset-panel {
-    width: 40%;
-  }
-  
-  #spectrum-panel, #raven-panel {
-    width: 40%;
+  #map-panel, #asset-panel, #spectrum-panel, #raven-panel {
+    width: calc(40% - 15px); /* Adjust for padding */
   }
 }
 
 @media (max-width: 1200px) {
-  .panel {
-    padding: 12px;
-  }
-  
   #map-panel, #asset-panel, #spectrum-panel, #raven-panel {
-    width: 45%;
+    width: calc(45% - 15px); /* Adjust for padding */
   }
 }
 
 @media (max-width: 768px) {
   #header-panel {
-    top: 10px;
-    left: 10px;
-    right: 10px;
-    height: 56px;
+    top: 5px;
+    left: 5px;
+    right: 5px;
+    height: 46px; /* Consistent height */
     padding: 0 12px;
   }
   
   .header-items {
-    gap: 12px;
+    gap: 10px;
+  }
+  
+  .mission-title {
+    font-size: 14px; /* Smaller font */
+  }
+  
+  .status-value {
+    font-size: 11px; /* Smaller font */
+    padding: 2px 4px; /* Smaller padding */
+  }
+  
+  .tactical-advantage-compact .advantage-bar {
+    width: 70px; /* Narrower bar */
   }
   
   #map-panel, #asset-panel, #spectrum-panel, #raven-panel {
-    width: calc(50% - 30px);
+    width: calc(50% - 10px); /* Adjust for padding */
+    min-width: 200px; /* Allow panels to be narrower */
+  }
+  
+  /* Adjust panel vertical positioning */
+  #map-panel {
+    top: 56px !important; /* Right after header */
+    left: 5px !important;
+    height: 200px !important; /* Smaller on mobile */
+  }
+  
+  #spectrum-panel {
+    top: 56px !important; /* Right after header */
+    right: 5px !important;
+    height: 200px !important; /* Smaller on mobile */
+  }
+  
+  #spectrum-display {
+    height: 140px !important; /* Smaller height on mobile */
+  }
+  
+  #asset-panel {
+    top: calc(56px + 200px + 10px) !important; /* After map panel with gap */
+    left: 5px !important;
+    height: 180px !important; /* Smaller on mobile */
+  }
+  
+  #raven-panel {
+    top: calc(56px + 200px + 10px) !important; /* After spectrum panel with gap */
+    right: 5px !important;
+    height: 180px !important; /* Smaller on mobile */
+    min-width: 200px !important; /* Allow panels to be narrower */
+  }
+  
+  #raven-output {
+    height: 110px !important; /* Smaller height on mobile */
   }
 }
 
 /* ==================== Panel-Specific Styles ==================== */
 #map-container {
   width: 100%;
-  height: calc(100% - 60px);
+  height: calc(100% - 32px); /* Even smaller gap for controls */
   background-color: rgba(20, 29, 38, 0.8);
   border-radius: 4px;
   overflow: hidden;
@@ -372,8 +512,8 @@ input:focus, textarea:focus, select:focus {
 
 .map-controls {
   display: flex;
-  gap: 8px;
-  margin-top: 10px;
+  gap: 3px; /* Even smaller gap */
+  margin-top: 4px; /* Even less margin */
 }
 
 .map-toggle {
@@ -394,7 +534,7 @@ input:focus, textarea:focus, select:focus {
 
 #spectrum-display {
   width: 100%;
-  height: 140px;
+  height: 180px; /* Increased height to match inline style */
   background-color: rgba(20, 29, 38, 0.8);
   border-radius: 4px;
   overflow: hidden;
@@ -404,7 +544,7 @@ input:focus, textarea:focus, select:focus {
 .frequency-bands {
   display: flex;
   justify-content: space-between;
-  margin-top: 10px;
+  margin-top: 4px; /* Even less margin */
 }
 
 .band {
@@ -424,7 +564,7 @@ input:focus, textarea:focus, select:focus {
 .asset-tabs {
   display: flex;
   gap: 2px;
-  margin-bottom: 8px; /* Reduced margin */
+  margin-bottom: 5px; /* Even smaller margin */
 }
 
 .asset-tab {
@@ -446,18 +586,18 @@ input:focus, textarea:focus, select:focus {
 .jammer-buttons {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  grid-gap: 4px; /* Even smaller gap */
-  margin: 4px 0; /* Even smaller margin */
+  grid-gap: 3px; /* Even smaller gap */
+  margin: 2px 0; /* Even smaller margin */
 }
 
 .jammer-button {
-  height: 30px; /* Even smaller button height */
+  height: 28px; /* Even smaller button height */
   background-color: var(--bg-card-alt);
   border: 1px solid var(--border-light);
   color: var(--text-primary);
   font-weight: 500;
   font-family: var(--font-mono);
-  font-size: 11px; /* Even smaller font */
+  font-size: 10px; /* Even smaller font */
   cursor: pointer;
   padding: 0; /* Remove padding */
 }
@@ -491,38 +631,38 @@ input:focus, textarea:focus, select:focus {
 .action-buttons {
   display: flex;
   justify-content: space-between;
-  margin-top: 6px; /* Even less margin */
-  gap: 6px; /* Smaller gap */
+  margin: 3px 0 0 0; /* Zero bottom margin */
+  gap: 4px; /* Even smaller gap */
 }
 
 .action-button {
-  height: 26px; /* Even smaller action buttons */
-  padding: 0 8px;
+  height: 24px; /* Even smaller action buttons */
+  padding: 0 6px;
   font-size: 10px; /* Even smaller font */
   min-width: 0; /* Allow buttons to shrink */
   flex: 1; /* Equal width */
 }
 
 #raven-output {
-  height: calc(100% - 100px);
+  height: 190px; /* Fixed height to match inline style */
   overflow-y: auto;
-  margin-bottom: 16px;
-  padding: 8px;
+  margin-bottom: 5px; /* Even less margin */
+  padding: 5px 5px 0 5px; /* Remove bottom padding */
   background-color: rgba(20, 29, 38, 0.5);
   border-radius: 4px;
 }
 
 .message {
-  margin-bottom: 10px;
-  padding: 8px;
+  margin-bottom: 6px; /* Less margin */
+  padding: 6px; /* Less padding */
   border-radius: 4px;
-  line-height: 1.4;
+  line-height: 1.3; /* Tighter line height */
 }
 
 .message.system {
   color: var(--accent-secondary);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 10px; /* Smaller font */
 }
 
 .message.raven {
@@ -540,30 +680,68 @@ input:focus, textarea:focus, select:focus {
 #raven-suggestions {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-bottom: 16px;
+  gap: 3px; /* Smaller gap */
+  margin-bottom: 4px; /* Even less margin */
 }
 
 .suggestion {
-  padding: 8px 12px;
+  padding: 5px 8px; /* Less padding */
   background-color: rgba(0, 132, 255, 0.1);
   border: 1px solid rgba(0, 132, 255, 0.3);
   border-radius: var(--button-radius);
   cursor: pointer;
+  font-size: 11px; /* Smaller font */
 }
 
 #raven-input-container {
   display: flex;
-  gap: 8px;
+  gap: 6px; /* Slightly larger gap */
 }
 
 #raven-input {
   flex: 1;
-  padding: 8px 12px;
+  padding: 6px 8px; /* Less padding */
   background-color: var(--input-bg);
   border: 1px solid var(--panel-border);
   border-radius: var(--input-radius);
   color: var(--text-primary);
+  font-size: 12px; /* Smaller font */
+  height: 28px; /* Control the height */
+}
+
+/* Raven button styling to match other buttons */
+#raven-panel button#raven-send, 
+#raven-panel button#raven-settings {
+  height: 30px !important; /* Match input height */
+  width: 38px !important; /* Wider buttons */
+  min-width: 38px !important;
+  background-color: var(--bg-card-alt) !important;
+  border: 1px solid var(--border-light) !important;
+  color: var(--text-primary) !important;
+  border-radius: var(--button-radius) !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all var(--transition-fast) !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  font-size: 14px !important;
+}
+
+#raven-panel button#raven-send:hover, 
+#raven-panel button#raven-settings:hover {
+  background-color: var(--accent-primary) !important;
+  border-color: var(--accent-secondary) !important;
+  color: var(--text-bright) !important;
+  box-shadow: var(--glow-blue) !important;
+  transform: translateY(-1px) !important;
+}
+
+#raven-panel button#raven-send:active, 
+#raven-panel button#raven-settings:active {
+  transform: translateY(0) !important;
+  background-color: var(--accent-secondary) !important;
 }
 
 /* ==================== Visual Effects ==================== */
@@ -601,71 +779,7 @@ input:focus, textarea:focus, select:focus {
   }
 }
 
-/* ==================== Tactical Advantage Indicator ==================== */
-#tactical-advantage {
-  position: absolute;
-  bottom: 10px; /* Closer to bottom */
-  left: 50%;
-  transform: translateX(-50%);
-  width: 50%;
-  z-index: 10; /* Lower z-index than panels */
-}
-
-.advantage-bar {
-  height: 8px;
-  background-color: rgba(30, 41, 59, 0.8);
-  border-radius: 4px;
-  overflow: hidden;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
-}
-
-.advantage-progress {
-  position: relative;
-  height: 100%;
-  width: 50%;
-  background: linear-gradient(90deg, 
-    rgba(255, 70, 85, 0.9) 0%, 
-    rgba(102, 102, 102, 0.9) 50%,
-    rgba(0, 132, 255, 0.9) 100%
-  );
-  transition: width 0.5s cubic-bezier(0.4, 0.0, 0.2, 1);
-  
-  /* Add glow effect */
-  box-shadow: 0 0 10px rgba(0, 132, 255, 0.4);
-}
-
-/* Add glow line */
-.advantage-progress::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  height: 100%;
-  width: 2px;
-  background-color: rgba(255, 255, 255, 0.7);
-  box-shadow: 0 0 8px 1px rgba(255, 255, 255, 0.9);
-}
-
-.advantage-labels {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 4px;
-  font-size: 10px;
-  color: var(--text-secondary);
-  font-family: var(--font-mono);
-}
-
-.advantage-value {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  font-weight: 600;
-  color: var(--text-primary);
-  text-shadow: 0 0 4px rgba(0, 0, 0, 0.7);
-  background-color: rgba(14, 22, 33, 0.5);
-  padding: 0 8px;
-  border-radius: 2px;
-}
+/* The tactical advantage indicator has been moved to the header panel */
 
 /* Alert System */
 #alert-container {
