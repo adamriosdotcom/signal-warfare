@@ -7,7 +7,9 @@ This document contains essential information for AI assistants working on this p
 ### Repository Information
 - Owner: adamriosdotcom
 - Repository: signal-warfare
+- Remote URL: git@github.com:adamriosdotcom/signal-warfare.git
 - Main branch: main
+- Authentication: SSH
 
 ### Commit Conventions
 - Use conventional commits (type: subject)
