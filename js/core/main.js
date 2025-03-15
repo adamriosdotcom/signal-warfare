@@ -89,19 +89,200 @@ class GameEngine {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setPixelRatio(window.devicePixelRatio);
     
+    // Enable shadows
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    
     // Add lights
     const ambientLight = new THREE.AmbientLight(0x404040, 2);
     this.scene.add(ambientLight);
     
     const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
     directionalLight.position.set(1, 1, 1).normalize();
+    directionalLight.castShadow = true;
+    
+    // Configure shadow properties
+    directionalLight.shadow.mapSize.width = 2048;
+    directionalLight.shadow.mapSize.height = 2048;
+    directionalLight.shadow.camera.near = 0.5;
+    directionalLight.shadow.camera.far = 1500;
+    directionalLight.shadow.camera.left = -1000;
+    directionalLight.shadow.camera.right = 1000;
+    directionalLight.shadow.camera.top = 1000;
+    directionalLight.shadow.camera.bottom = -1000;
+    
     this.scene.add(directionalLight);
+    
+    // Add hemisphere light for better ambient illumination
+    const hemisphereLight = new THREE.HemisphereLight(0x0c1841, 0x283848, 0.8);
+    this.scene.add(hemisphereLight);
+    
+    // Add subtle bloom post-processing
+    if (window.THREE && THREE.EffectComposer) {
+      this.setupPostProcessing();
+    }
+    
+    // Setup camera controls
+    this.setupCameraControls();
     
     // Create clock for timing
     this.clock = new THREE.Clock();
     
     // Handle window resize
     window.addEventListener('resize', this.onWindowResize.bind(this));
+  }
+  
+  // Setup post-processing effects
+  setupPostProcessing() {
+    try {
+      // Set up composer
+      this.composer = new THREE.EffectComposer(this.renderer);
+      
+      // Add render pass
+      const renderPass = new THREE.RenderPass(this.scene, this.camera);
+      this.composer.addPass(renderPass);
+      
+      // Add bloom pass for glow effects
+      const bloomPass = new THREE.UnrealBloomPass(
+        new THREE.Vector2(window.innerWidth, window.innerHeight),
+        0.3,    // strength
+        0.4,    // radius
+        0.9     // threshold
+      );
+      this.composer.addPass(bloomPass);
+      
+      // Final output pass
+      const outputPass = new THREE.ShaderPass(THREE.GammaCorrectionShader);
+      outputPass.renderToScreen = true;
+      this.composer.addPass(outputPass);
+    } catch (error) {
+      console.warn('Post-processing not available:', error);
+      // Fall back to standard rendering
+    }
+  }
+  
+  // Setup enhanced camera controls
+  setupCameraControls() {
+    // Camera state
+    this.cameraState = {
+      target: new THREE.Vector3(0, 0, 0),
+      position: new THREE.Vector3(0, 0, 800),
+      zoom: 1.0,
+      minZoom: 0.5,
+      maxZoom: 2.0,
+      zoomSpeed: 0.1,
+      moveSpeed: 10,
+      rotateSpeed: 0.3,
+      isRotating: false,
+      isPanning: false,
+      dragStartPosition: { x: 0, y: 0 },
+      rotationAngle: 0
+    };
+    
+    // Set initial camera position
+    this.camera.position.copy(this.cameraState.position);
+    this.camera.lookAt(this.cameraState.target);
+    
+    // Mouse wheel for zoom
+    this.renderer.domElement.addEventListener('wheel', (event) => {
+      event.preventDefault();
+      
+      // Adjust zoom level
+      const zoomChange = Math.sign(event.deltaY) * this.cameraState.zoomSpeed;
+      this.cameraState.zoom = Math.max(
+        this.cameraState.minZoom,
+        Math.min(this.cameraState.maxZoom, this.cameraState.zoom + zoomChange)
+      );
+      
+      // Apply zoom to camera
+      const direction = new THREE.Vector3().subVectors(
+        this.camera.position,
+        this.cameraState.target
+      ).normalize();
+      
+      const distance = this.cameraState.target.distanceTo(this.camera.position);
+      const newDistance = (800 / this.cameraState.zoom);
+      
+      this.camera.position.copy(this.cameraState.target).add(
+        direction.multiplyScalar(newDistance)
+      );
+      
+      // Update camera
+      this.camera.updateProjectionMatrix();
+    });
+    
+    // Middle mouse button for rotation
+    this.renderer.domElement.addEventListener('mousedown', (event) => {
+      if (event.button === 1) { // Middle mouse button
+        event.preventDefault();
+        this.cameraState.isRotating = true;
+        this.cameraState.dragStartPosition.x = event.clientX;
+        this.cameraState.dragStartPosition.y = event.clientY;
+      } else if (event.button === 2) { // Right mouse button
+        event.preventDefault();
+        this.cameraState.isPanning = true;
+        this.cameraState.dragStartPosition.x = event.clientX;
+        this.cameraState.dragStartPosition.y = event.clientY;
+      }
+    });
+    
+    // Mouse move for rotation/panning
+    this.renderer.domElement.addEventListener('mousemove', (event) => {
+      if (this.cameraState.isRotating) {
+        // Calculate rotation
+        const deltaX = event.clientX - this.cameraState.dragStartPosition.x;
+        const deltaY = event.clientY - this.cameraState.dragStartPosition.y;
+        
+        // Update rotation angles
+        this.cameraState.rotationAngle -= deltaX * this.cameraState.rotateSpeed * 0.01;
+        
+        // Calculate new camera position
+        const distance = this.cameraState.target.distanceTo(this.camera.position);
+        const height = this.camera.position.y;
+        
+        this.camera.position.x = this.cameraState.target.x + distance * Math.sin(this.cameraState.rotationAngle);
+        this.camera.position.z = this.cameraState.target.z + distance * Math.cos(this.cameraState.rotationAngle);
+        
+        // Look at target
+        this.camera.lookAt(this.cameraState.target);
+        
+        // Update start position
+        this.cameraState.dragStartPosition.x = event.clientX;
+        this.cameraState.dragStartPosition.y = event.clientY;
+      } else if (this.cameraState.isPanning) {
+        // Calculate pan amount
+        const deltaX = (event.clientX - this.cameraState.dragStartPosition.x) * 0.5;
+        const deltaY = (event.clientY - this.cameraState.dragStartPosition.y) * 0.5;
+        
+        // Calculate camera right and up vectors
+        const right = new THREE.Vector3();
+        const up = new THREE.Vector3(0, 1, 0);
+        right.crossVectors(up, this.camera.getWorldDirection(new THREE.Vector3()));
+        
+        // Apply movement
+        this.cameraState.target.add(right.multiplyScalar(-deltaX));
+        this.cameraState.target.add(up.multiplyScalar(-deltaY));
+        
+        // Move camera
+        this.camera.position.add(right.multiplyScalar(-deltaX));
+        this.camera.position.add(up.multiplyScalar(-deltaY));
+        
+        // Update start position
+        this.cameraState.dragStartPosition.x = event.clientX;
+        this.cameraState.dragStartPosition.y = event.clientY;
+      }
+    });
+    
+    // Mouse up to stop rotation
+    window.addEventListener('mouseup', (event) => {
+      this.cameraState.isRotating = false;
+      this.cameraState.isPanning = false;
+    });
+    
+    // Prevent context menu on right-click
+    this.renderer.domElement.addEventListener('contextmenu', (event) => {
+      event.preventDefault();
+    });
   }
   
   // Initialize Entity-Component-System
@@ -242,18 +423,30 @@ class GameEngine {
   
   // Create terrain
   createTerrain() {
-    // Create simple flat terrain for now
+    // Create enhanced terrain with detail
     const geometry = new THREE.PlaneGeometry(
       CONFIG.terrain.width, 
       CONFIG.terrain.height, 
-      32, 32
+      128, 128 // More divisions for detail
     );
     
-    const material = new THREE.MeshStandardMaterial({
+    // Create terrain height map
+    this.generateTerrainHeightMap(geometry);
+    
+    // Load terrain textures
+    const textureLoader = new THREE.TextureLoader();
+    
+    // For now use color and basic materials, will add textures when assets are available
+    const material = new THREE.MeshPhongMaterial({
       color: 0x1e293b,
-      roughness: 0.8,
-      metalness: 0.2,
-      side: THREE.DoubleSide
+      shininess: 0,
+      flatShading: true,
+      wireframe: false,
+      side: THREE.DoubleSide,
+      // We would normally add these textures:
+      // map: textureLoader.load('assets/textures/terrain/diffuse.jpg'),
+      // bumpMap: textureLoader.load('assets/textures/terrain/bump.jpg'),
+      // bumpScale: 0.5,
     });
     
     this.terrain = new THREE.Mesh(geometry, material);
@@ -272,6 +465,82 @@ class GameEngine {
     gridHelper.rotation.x = Math.PI / 2;
     
     this.scene.add(gridHelper);
+    
+    // Add skybox
+    this.createSkybox();
+  }
+  
+  // Generate terrain height map using simplex noise
+  generateTerrainHeightMap(geometry) {
+    // Simple heightmap for demonstration
+    // Will be enhanced with proper noise functions later
+    const vertices = geometry.attributes.position.array;
+    
+    for (let i = 0; i < vertices.length; i += 3) {
+      // Get x and z coordinates
+      const x = vertices[i];
+      const z = vertices[i + 2];
+      
+      // Generate simple height based on position
+      // This creates a basic undulating terrain
+      const distance = Math.sqrt(x * x + z * z) / 1000;
+      const height = Math.sin(distance * 5) * 20 + 
+                     Math.cos(x / 100) * 10 + 
+                     Math.sin(z / 120) * 15;
+      
+      // Apply height to y coordinate
+      vertices[i + 1] = height;
+    }
+    
+    // Update geometry
+    geometry.attributes.position.needsUpdate = true;
+    geometry.computeVertexNormals();
+  }
+  
+  // Create skybox
+  createSkybox() {
+    // Create simple color gradient skybox
+    const vertexShader = `
+      varying vec3 vWorldPosition;
+      
+      void main() {
+        vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+        vWorldPosition = worldPosition.xyz;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `;
+    
+    const fragmentShader = `
+      uniform vec3 topColor;
+      uniform vec3 bottomColor;
+      uniform float offset;
+      uniform float exponent;
+      
+      varying vec3 vWorldPosition;
+      
+      void main() {
+        float h = normalize(vWorldPosition + offset).y;
+        gl_FragColor = vec4(mix(bottomColor, topColor, max(pow(max(h, 0.0), exponent), 0.0)), 1.0);
+      }
+    `;
+    
+    const uniforms = {
+      topColor: { value: new THREE.Color(0x0c1841) },     // Dark blue
+      bottomColor: { value: new THREE.Color(0x102030) },  // Darker blue/black
+      offset: { value: 400 },
+      exponent: { value: 0.6 }
+    };
+    
+    const skyGeo = new THREE.SphereGeometry(4000, 32, 15);
+    const skyMat = new THREE.ShaderMaterial({
+      uniforms: uniforms,
+      vertexShader: vertexShader,
+      fragmentShader: fragmentShader,
+      side: THREE.BackSide
+    });
+    
+    const sky = new THREE.Mesh(skyGeo, skyMat);
+    this.scene.add(sky);
   }
   
   // Update mouse world position based on current mouse screen position
@@ -495,15 +764,42 @@ class GameEngine {
     }
     
     // Handle camera controls
-    const moveSpeed = 10;
-    if (key === 'w') {
-      this.camera.position.y += moveSpeed;
-    } else if (key === 's') {
-      this.camera.position.y -= moveSpeed;
-    } else if (key === 'a') {
-      this.camera.position.x -= moveSpeed;
-    } else if (key === 'd') {
-      this.camera.position.x += moveSpeed;
+    if (key === 'r') {
+      // Reset camera to default position
+      this.resetCamera();
+    } else if (key === 'f') {
+      // Toggle terrain wireframe mode
+      if (this.terrain && this.terrain.material) {
+        this.terrain.material.wireframe = !this.terrain.material.wireframe;
+      }
+    } else if (key === 't') {
+      // Toggle RF visualization
+      const rfSystem = this.ecs.getSystem('rfPropagation');
+      if (rfSystem) {
+        rfSystem.enabled = !rfSystem.enabled;
+        
+        // Show/hide all visualizations
+        rfSystem.visualizationObjects.forEach(obj => {
+          obj.visible = rfSystem.enabled;
+        });
+        
+        this.showAlert(`RF visualization ${rfSystem.enabled ? 'enabled' : 'disabled'}`, 'info');
+      }
+    }
+  }
+  
+  // Reset camera to default position
+  resetCamera() {
+    if (this.cameraState) {
+      this.cameraState.target.set(0, 0, 0);
+      this.cameraState.zoom = 1.0;
+      this.cameraState.rotationAngle = 0;
+      
+      // Set camera position
+      this.camera.position.set(0, 0, 800);
+      this.camera.lookAt(this.cameraState.target);
+      
+      this.showAlert('Camera reset to default position', 'info');
     }
   }
   

@@ -317,6 +317,72 @@ input:focus, textarea:focus, select:focus {
   }
 }
 
+/* ==================== Tactical Advantage Indicator ==================== */
+#tactical-advantage {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 50%;
+  z-index: 20;
+}
+
+.advantage-bar {
+  height: 8px;
+  background-color: rgba(30, 41, 59, 0.8);
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+.advantage-progress {
+  position: relative;
+  height: 100%;
+  width: 50%;
+  background: linear-gradient(90deg, 
+    rgba(255, 70, 85, 0.9) 0%, 
+    rgba(102, 102, 102, 0.9) 50%,
+    rgba(0, 132, 255, 0.9) 100%
+  );
+  transition: width 0.5s cubic-bezier(0.4, 0.0, 0.2, 1);
+  
+  /* Add glow effect */
+  box-shadow: 0 0 10px rgba(0, 132, 255, 0.4);
+}
+
+/* Add glow line */
+.advantage-progress::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: 2px;
+  background-color: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 0 8px 1px rgba(255, 255, 255, 0.9);
+}
+
+.advantage-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+.advantage-value {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-weight: 600;
+  color: var(--text-primary);
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.7);
+  background-color: rgba(14, 22, 33, 0.5);
+  padding: 0 8px;
+  border-radius: 2px;
+}
+
 /* Alert System */
 #alert-container {
   position: absolute;

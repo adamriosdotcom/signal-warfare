@@ -4,18 +4,68 @@
  * This file loads the THREE.js library dynamically and initializes the application.
  */
 
-// Dynamically load THREE.js
+// Dynamically load THREE.js and extensions
 (function loadThreeJS() {
-  const script = document.createElement('script');
-  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r158/three.min.js';
-  script.onload = () => {
+  // Load main THREE.js library
+  const mainScript = document.createElement('script');
+  mainScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r158/three.min.js';
+  
+  mainScript.onload = () => {
     console.log('THREE.js loaded successfully');
+    
+    // Load post-processing extensions
+    loadThreeJSExtensions();
   };
-  script.onerror = () => {
+  
+  mainScript.onerror = () => {
     console.error('Failed to load THREE.js');
     displayErrorMessage('Failed to load THREE.js library. Please check your internet connection and try again.');
   };
-  document.head.appendChild(script);
+  
+  document.head.appendChild(mainScript);
+  
+  // Function to load THREE.js extensions
+  function loadThreeJSExtensions() {
+    // Load extensions sequentially to ensure proper dependency order
+    const extensions = [
+      'https://unpkg.com/three@0.158.0/examples/jsm/postprocessing/EffectComposer.js',
+      'https://unpkg.com/three@0.158.0/examples/jsm/postprocessing/RenderPass.js',
+      'https://unpkg.com/three@0.158.0/examples/jsm/postprocessing/ShaderPass.js',
+      'https://unpkg.com/three@0.158.0/examples/jsm/postprocessing/UnrealBloomPass.js',
+      'https://unpkg.com/three@0.158.0/examples/jsm/shaders/GammaCorrectionShader.js'
+    ];
+    
+    let loaded = 0;
+    
+    function loadNextExtension(index) {
+      if (index >= extensions.length) {
+        console.log('All THREE.js extensions loaded');
+        return;
+      }
+      
+      const script = document.createElement('script');
+      script.src = extensions[index];
+      
+      script.onload = () => {
+        loaded++;
+        console.log(`THREE.js extension loaded (${loaded}/${extensions.length})`);
+        
+        // Load next extension
+        loadNextExtension(index + 1);
+      };
+      
+      script.onerror = () => {
+        console.warn(`Failed to load THREE.js extension: ${extensions[index]}`);
+        // Continue loading others
+        loadNextExtension(index + 1);
+      };
+      
+      document.head.appendChild(script);
+    }
+    
+    // Start loading extensions
+    loadNextExtension(0);
+  }
 })();
 
 // Display startup message

@@ -166,7 +166,12 @@ class RenderSystem extends System {
   
   render() {
     if (this.renderer && this.scene && this.camera) {
-      this.renderer.render(this.scene, this.camera);
+      // Check if we have a composer (for post-processing)
+      if (window.gameEngine && window.gameEngine.composer) {
+        window.gameEngine.composer.render();
+      } else {
+        this.renderer.render(this.scene, this.camera);
+      }
     }
   }
 }
@@ -241,16 +246,25 @@ class RFPropagationSystem extends System {
       const radius = 5 + (transmitterComponent.power + 100) * 0.5; // Scale radius by power
       const geometry = new THREE.SphereGeometry(radius, 32, 16);
       
+      // Create advanced shader material for pulsing effect
       const material = new THREE.ShaderMaterial({
         transparent: true,
         uniforms: {
-          color: { value: color }
+          color: { value: color },
+          time: { value: 0.0 },
+          pulseSpeed: { value: 1.0 },
+          pulseIntensity: { value: 0.1 }
         },
         vertexShader: `
           varying float vOpacity;
+          varying vec3 vPosition;
+          
           void main() {
             vec4 modelViewPosition = modelViewMatrix * vec4(position, 1.0);
             gl_Position = projectionMatrix * modelViewPosition;
+            
+            // Pass position to fragment shader
+            vPosition = position;
             
             // Fade from center to edge
             vOpacity = 1.0 - (length(position) / ${radius.toFixed(1)});
@@ -258,14 +272,79 @@ class RFPropagationSystem extends System {
         `,
         fragmentShader: `
           uniform vec3 color;
+          uniform float time;
+          uniform float pulseSpeed;
+          uniform float pulseIntensity;
+          
           varying float vOpacity;
+          varying vec3 vPosition;
+          
           void main() {
-            gl_FragColor = vec4(color, vOpacity * 0.5);
+            // Create pulsing effect with sin wave
+            float pulse = pulseIntensity * sin(time * pulseSpeed);
+            
+            // Apply pulse to opacity
+            float opacity = vOpacity * (0.5 + pulse);
+            
+            // Apply radial gradient
+            float gradient = smoothstep(0.0, 1.0, vOpacity);
+            
+            // Create edge glow effect
+            float edge = smoothstep(0.4, 0.5, vOpacity) * 0.5;
+            
+            // Final color
+            vec3 finalColor = mix(color * 1.5, color, gradient);
+            
+            gl_FragColor = vec4(finalColor, opacity);
           }
         `
       });
       
+      // Create animation update function
+      const clock = new THREE.Clock();
+      
+      // Attach update function to material
+      material.userData = {
+        update: function() {
+          this.uniforms.time.value = clock.getElapsedTime();
+        }
+      };
+      
       visualizationMesh = new THREE.Mesh(geometry, material);
+      
+      // Create additional effect - rings pulsing outward
+      const ringGeometry = new THREE.RingGeometry(radius * 0.8, radius * 0.83, 32);
+      const ringMaterial = new THREE.MeshBasicMaterial({
+        color: color,
+        transparent: true,
+        opacity: 0.3,
+        side: THREE.DoubleSide
+      });
+      
+      const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+      ring.rotation.x = Math.PI / 2;
+      
+      // Animation for ring
+      ring.userData = {
+        initialScale: 0.1,
+        update: function(delta) {
+          this.scale.x += delta * 0.5;
+          this.scale.y += delta * 0.5;
+          this.scale.z += delta * 0.5;
+          
+          this.material.opacity = 0.3 * (1 - this.scale.x / 4);
+          
+          if (this.scale.x > 3) {
+            this.scale.set(0.1, 0.1, 0.1);
+          }
+        }
+      };
+      
+      // Initialize scale
+      ring.scale.set(0.1, 0.1, 0.1);
+      
+      // Add ring to visualization mesh as child
+      visualizationMesh.add(ring);
     } 
     else {
       // Directional antenna - create cone
@@ -279,16 +358,26 @@ class RFPropagationSystem extends System {
       geometry.rotateX(Math.PI / 2);
       geometry.rotateZ(THREE.MathUtils.degToRad(transmitterComponent.antennaHeading));
       
+      // Create advanced shader material with wave pattern
       const material = new THREE.ShaderMaterial({
         transparent: true,
         uniforms: {
-          color: { value: color }
+          color: { value: color },
+          time: { value: 0.0 },
+          waveSpeed: { value: 2.0 },
+          waveFrequency: { value: 6.0 },
+          waveAmplitude: { value: 0.1 }
         },
         vertexShader: `
           varying float vOpacity;
+          varying vec3 vPosition;
+          
           void main() {
             vec4 modelViewPosition = modelViewMatrix * vec4(position, 1.0);
             gl_Position = projectionMatrix * modelViewPosition;
+            
+            // Pass position to fragment shader
+            vPosition = position;
             
             // Fade from base to tip
             vOpacity = 1.0 - (position.y / ${height.toFixed(1)});
@@ -296,14 +385,107 @@ class RFPropagationSystem extends System {
         `,
         fragmentShader: `
           uniform vec3 color;
+          uniform float time;
+          uniform float waveSpeed;
+          uniform float waveFrequency;
+          uniform float waveAmplitude;
+          
           varying float vOpacity;
+          varying vec3 vPosition;
+          
           void main() {
-            gl_FragColor = vec4(color, vOpacity * 0.5);
+            // Create wave pattern
+            float wave = sin(vPosition.y * waveFrequency + time * waveSpeed) * waveAmplitude;
+            
+            // Apply wave to opacity
+            float opacity = vOpacity * (0.5 + wave);
+            
+            // Create edge glow
+            float edge = smoothstep(0.0, 0.2, vOpacity) * 0.8;
+            
+            // Final color with edge glow
+            vec3 finalColor = mix(color * 1.5, color, edge);
+            
+            gl_FragColor = vec4(finalColor, opacity);
           }
         `
       });
       
+      // Create animation update function
+      const clock = new THREE.Clock();
+      
+      // Attach update function to material
+      material.userData = {
+        update: function() {
+          this.uniforms.time.value = clock.getElapsedTime();
+        }
+      };
+      
       visualizationMesh = new THREE.Mesh(geometry, material);
+      
+      // Add additional effect - directional particles
+      const particleCount = 20;
+      const particleGeometry = new THREE.BufferGeometry();
+      const particlePositions = new Float32Array(particleCount * 3);
+      const particleSizes = new Float32Array(particleCount);
+      
+      // Initialize particles along cone axis
+      for (let i = 0; i < particleCount; i++) {
+        const progress = i / particleCount;
+        const xOffset = (Math.random() - 0.5) * progress * radius * 0.8;
+        const zOffset = (Math.random() - 0.5) * progress * radius * 0.8;
+        
+        particlePositions[i * 3] = xOffset;
+        particlePositions[i * 3 + 1] = progress * height * 0.9;
+        particlePositions[i * 3 + 2] = zOffset;
+        
+        particleSizes[i] = (1 - progress) * 5 + 1;
+      }
+      
+      particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+      particleGeometry.setAttribute('size', new THREE.BufferAttribute(particleSizes, 1));
+      
+      const particleMaterial = new THREE.PointsMaterial({
+        color: color,
+        transparent: true,
+        opacity: 0.7,
+        size: 5,
+        sizeAttenuation: true,
+        blending: THREE.AdditiveBlending
+      });
+      
+      const particles = new THREE.Points(particleGeometry, particleMaterial);
+      
+      // Animation for particles
+      particles.userData = {
+        speeds: Array(particleCount).fill().map(() => Math.random() * 0.2 + 0.1),
+        update: function(delta) {
+          const positions = this.geometry.attributes.position.array;
+          
+          for (let i = 0; i < particleCount; i++) {
+            positions[i * 3 + 1] += this.speeds[i] * delta * 50;
+            
+            // Reset particle when it reaches the end
+            if (positions[i * 3 + 1] > height) {
+              positions[i * 3] = (Math.random() - 0.5) * 0.2 * radius;
+              positions[i * 3 + 1] = 0;
+              positions[i * 3 + 2] = (Math.random() - 0.5) * 0.2 * radius;
+            }
+          }
+          
+          this.geometry.attributes.position.needsUpdate = true;
+        }
+      };
+      
+      // Rotate particles to match cone orientation
+      particles.rotation.x = Math.PI / 2;
+      particles.rotation.z = THREE.MathUtils.degToRad(transmitterComponent.antennaHeading);
+      
+      // Disable raycasting for particles
+      particles.raycast = () => {};
+      
+      // Add particles to visualization mesh
+      visualizationMesh.add(particles);
     }
     
     // Position the visualization
@@ -606,6 +788,27 @@ class RFPropagationSystem extends System {
     
     // Then update all receivers
     this.updateReceivers();
+    
+    // Update visualization animations
+    this.updateVisualizations(deltaTime);
+  }
+  
+  // Update all visualization animations
+  updateVisualizations(deltaTime) {
+    // Update each visualization mesh
+    this.visualizationObjects.forEach((mesh) => {
+      // Update main mesh material if it has an update function
+      if (mesh.material && mesh.material.userData && mesh.material.userData.update) {
+        mesh.material.userData.update(deltaTime);
+      }
+      
+      // Update child objects (rings, particles, etc.)
+      mesh.children.forEach(child => {
+        if (child.userData && child.userData.update) {
+          child.userData.update(deltaTime);
+        }
+      });
+    });
   }
 }
 
