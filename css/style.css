@@ -300,9 +300,10 @@ input:focus, textarea:focus, select:focus {
   top: calc(60% + 20px);
   left: 20px;
   width: 35%;
-  height: calc(40% - 60px); /* More room at the bottom */
+  height: calc(40% - 100px); /* Much more room at the bottom to avoid overlap */
   min-width: 300px;
-  min-height: 230px; /* Ensure minimum height */
+  min-height: 210px; /* Smaller minimum height */
+  z-index: 15; /* Ensure proper z-index order */
 }
 
 #raven-panel {
@@ -445,19 +446,20 @@ input:focus, textarea:focus, select:focus {
 .jammer-buttons {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  grid-gap: 6px; /* Smaller gap */
-  margin: 6px 0; /* Smaller margin */
+  grid-gap: 4px; /* Even smaller gap */
+  margin: 4px 0; /* Even smaller margin */
 }
 
 .jammer-button {
-  height: 36px; /* Smaller button height */
+  height: 30px; /* Even smaller button height */
   background-color: var(--bg-card-alt);
   border: 1px solid var(--border-light);
   color: var(--text-primary);
   font-weight: 500;
   font-family: var(--font-mono);
-  font-size: 12px; /* Smaller font */
+  font-size: 11px; /* Even smaller font */
   cursor: pointer;
+  padding: 0; /* Remove padding */
 }
 
 .jammer-button.selected {
@@ -469,19 +471,19 @@ input:focus, textarea:focus, select:focus {
 .status-indicators {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 8px; /* Less margin */
+  margin-bottom: 4px; /* Even less margin */
 }
 
 .status-text {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px; /* Smaller gap */
 }
 
 .selector-title {
-  margin-top: 8px; /* Less margin */
-  margin-bottom: 4px; /* Less margin */
-  font-size: 12px;
+  margin-top: 4px; /* Even less margin */
+  margin-bottom: 2px; /* Even less margin */
+  font-size: 10px; /* Smaller font */
   color: var(--text-secondary);
   font-weight: 500;
 }
@@ -489,14 +491,16 @@ input:focus, textarea:focus, select:focus {
 .action-buttons {
   display: flex;
   justify-content: space-between;
-  margin-top: 12px; /* Less margin */
-  gap: 8px;
+  margin-top: 6px; /* Even less margin */
+  gap: 6px; /* Smaller gap */
 }
 
 .action-button {
-  height: 32px; /* Smaller action buttons */
-  padding: 0 10px;
-  font-size: 11px; /* Smaller font */
+  height: 26px; /* Even smaller action buttons */
+  padding: 0 8px;
+  font-size: 10px; /* Even smaller font */
+  min-width: 0; /* Allow buttons to shrink */
+  flex: 1; /* Equal width */
 }
 
 #raven-output {
@@ -600,11 +604,11 @@ input:focus, textarea:focus, select:focus {
 /* ==================== Tactical Advantage Indicator ==================== */
 #tactical-advantage {
   position: absolute;
-  bottom: 20px;
+  bottom: 10px; /* Closer to bottom */
   left: 50%;
   transform: translateX(-50%);
   width: 50%;
-  z-index: 20;
+  z-index: 10; /* Lower z-index than panels */
 }
 
 .advantage-bar {
