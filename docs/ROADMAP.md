@@ -1,6 +1,6 @@
-# SIGNAL WARFARE - Implementation Roadmap
+# ECHO ZERO - Implementation Roadmap
 
-This document outlines the development roadmap for the SIGNAL WARFARE web application, detailing the current state, future enhancements, and implementation plan to realize the complete vision.
+This document outlines the development roadmap for the ECHO ZERO web application, detailing the current state, future enhancements, and implementation plan to realize the complete vision.
 
 ## Current Implementation (v0.1)
 

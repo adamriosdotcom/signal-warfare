@@ -16,7 +16,7 @@ This document contains essential information for AI assistants working on this p
 - Types: feat, fix, docs, style, refactor, test, chore
 - Keep subject under 50 characters
 - Use imperative mood (Add feature, not Added feature)
-- Example: `feat: add RF propagation visualization`
+- Example: `feat: add RF propagation visualization for ECHO ZERO`
 
 ### Version Control Workflow
 - Commit after each individual change to the codebase

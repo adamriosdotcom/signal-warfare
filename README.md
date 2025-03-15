@@ -1,4 +1,4 @@
-# SIGNAL WARFARE
+# ECHO ZERO
 
 A tactical RF warfare simulation with AI integration. Combines realistic electromagnetic physics with strategic gameplay and utilizes Claude for natural language command processing.
 

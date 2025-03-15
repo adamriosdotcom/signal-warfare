@@ -1,6 +1,6 @@
 # RF Propagation System Documentation
 
-The RF (Radio Frequency) propagation system is a core component of SIGNAL WARFARE, simulating realistic electromagnetic wave propagation for tactical electronic warfare.
+The RF (Radio Frequency) propagation system is a core component of ECHO ZERO, simulating realistic electromagnetic wave propagation for tactical electronic warfare.
 
 ## 1. System Overview
 

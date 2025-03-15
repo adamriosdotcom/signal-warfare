@@ -1,6 +1,6 @@
-# AI Agent Integration for SIGNAL WARFARE
+# AI Agent Integration for ECHO ZERO
 
-This document outlines how to make SIGNAL WARFARE fully playable by AI agents, ensuring that RAVEN (or any other AI system) can execute all possible actions that a human player can perform.
+This document outlines how to make ECHO ZERO fully playable by AI agents, ensuring that RAVEN (or any other AI system) can execute all possible actions that a human player can perform.
 
 ## 1. Core Principles for AI Playability
 

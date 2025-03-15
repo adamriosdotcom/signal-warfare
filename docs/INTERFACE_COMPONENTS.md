@@ -1,10 +1,10 @@
 # Interface Components Documentation
 
-This document details the UI components of the SIGNAL WARFARE application, their purpose, and technical implementation.
+This document details the UI components of the ECHO ZERO application, their purpose, and technical implementation.
 
 ## 1. Interface Overview
 
-SIGNAL WARFARE uses a modular, panel-based interface designed to emulate military tactical displays:
+ECHO ZERO uses a modular, panel-based interface designed to emulate military tactical displays:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -42,7 +42,7 @@ The top status bar providing mission information and global status.
 **HTML Structure:**
 ```html
 <div id="header-panel" class="panel">
-    <div class="mission-title">SIGNAL WARFARE</div>
+    <div class="mission-title">ECHO ZERO</div>
     <div class="header-items">
         <div class="header-item">
             <span class="status-label">JAMMERS:</span>

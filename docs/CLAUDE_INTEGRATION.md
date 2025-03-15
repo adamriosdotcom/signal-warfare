@@ -1,4 +1,4 @@
-# SIGNAL WARFARE: Claude AI Integration
+# ECHO ZERO: Claude AI Integration
 
 This document details how the RAVEN AI assistant integrates with Anthropic's Claude AI through a proxy server architecture.
 

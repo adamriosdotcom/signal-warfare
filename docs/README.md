@@ -1,10 +1,10 @@
-# SIGNAL WARFARE Documentation
+# ECHO ZERO Documentation
 
-This folder contains all documentation and technical context for the SIGNAL WARFARE project.
+This folder contains all documentation and technical context for the ECHO ZERO project.
 
 ## Core Documentation
 
-- [**SIGNAL_WARFARE_VISION.md**](./SIGNAL_WARFARE_VISION.md) - The master vision document describing the game concept, mechanics, and design principles.
+- [**ECHO_ZERO_VISION.md**](./SIGNAL_WARFARE_VISION.md) - The master vision document describing the game concept, mechanics, and design principles.
 - [**ROADMAP.md**](./ROADMAP.md) - Development roadmap with phased implementation plans and priorities.
 
 ## Technical Components
@@ -18,14 +18,14 @@ This folder contains all documentation and technical context for the SIGNAL WARF
 
 ## Using This Documentation
 
-These documents are designed to provide a comprehensive understanding of both the vision for SIGNAL WARFARE and its technical implementation. They serve multiple purposes:
+These documents are designed to provide a comprehensive understanding of both the vision for ECHO ZERO and its technical implementation. They serve multiple purposes:
 
 1. **Project Reference** - Complete description of how components work and interact
 2. **Development Guide** - Technical details for building or rebuilding components
 3. **Educational Resource** - Explanations of concepts like RF propagation and AI integration
 4. **Vision Alignment** - Ensuring all development stays true to the core concept
 
-When implementing or modifying any aspect of SIGNAL WARFARE, start by reviewing the relevant documentation to understand both the technical details and how they fit into the broader vision.
+When implementing or modifying any aspect of ECHO ZERO, start by reviewing the relevant documentation to understand both the technical details and how they fit into the broader vision.
 
 ## Update Practices
 

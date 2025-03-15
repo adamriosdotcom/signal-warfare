@@ -1,6 +1,6 @@
 # RAVEN AI Assistant Documentation
 
-RAVEN (Rapid Autonomous Vector & Electronic Navigation) is the AI assistant in SIGNAL WARFARE, serving as both a tactical advisor and interface for natural language commands.
+RAVEN (Rapid Autonomous Vector & Electronic Navigation) is the AI assistant in ECHO ZERO, serving as both a tactical advisor and interface for natural language commands.
 
 ## 1. Core Functionality
 
