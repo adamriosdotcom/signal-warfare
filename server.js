@@ -1,4 +1,4 @@
-// Signal Warfare - Server
+// ECHO ZERO - Server
 // Express server for serving the application and proxying Claude API requests
 
 const express = require('express');
@@ -26,7 +26,9 @@ app.use(express.static(path.join(__dirname, './'), {
     
     // Add cache control for better performance
     if (path.endsWith('.js') || path.endsWith('.css')) {
-      res.setHeader('Cache-Control', 'public, max-age=300'); // 5 minutes
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate'); // Force refresh during development
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
     }
   }
 }));
@@ -82,6 +84,6 @@ app.get('*', (req, res) => {
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`SIGNAL WARFARE server running on port ${PORT}`);
+  console.log(`ECHO ZERO server running on port ${PORT}`);
   console.log(`Open http://localhost:${PORT} in your browser`);
 });

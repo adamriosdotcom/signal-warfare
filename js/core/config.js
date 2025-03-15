@@ -13,7 +13,7 @@
 const CONFIG = {
   // Application settings
   app: {
-    name: 'SIGNAL WARFARE',
+    name: 'ECHO ZERO',
     version: '0.1.0',
     debugMode: false
   },

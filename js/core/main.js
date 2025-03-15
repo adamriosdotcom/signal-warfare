@@ -63,7 +63,7 @@ class GameEngine {
     this.lastTime = performance.now();
     requestAnimationFrame(this.gameLoop.bind(this));
     
-    console.log('SIGNAL WARFARE initialized');
+    console.log('ECHO ZERO initialized');
   }
   
   // Initialize THREE.js

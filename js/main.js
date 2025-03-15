@@ -26,7 +26,7 @@ window.addEventListener('load', () => {
 
 // Display startup message
 function displayStartupMessage() {
-  const message = "SIGNAL WARFARE initializing...";
+  const message = "ECHO ZERO initializing...";
   console.log(message);
   
   // Add system message to RAVEN output
@@ -34,7 +34,7 @@ function displayStartupMessage() {
   if (ravenOutput) {
     const systemMessage = document.createElement('div');
     systemMessage.className = 'message system';
-    systemMessage.textContent = "SIGNAL WARFARE tactical interface online. Welcome, Commander.";
+    systemMessage.textContent = "ECHO ZERO tactical interface online. Welcome, Commander.";
     ravenOutput.appendChild(systemMessage);
   }
 }
