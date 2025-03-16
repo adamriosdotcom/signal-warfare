@@ -101,6 +101,7 @@ function initMapLayerToggles() {
     element.style.borderColor = '#36f9b3'; // --alert-green
     element.style.boxShadow = '0 0 5px rgba(54, 249, 179, 0.4)';
     element.style.fontWeight = '600';
+    element.setAttribute('aria-selected', 'true');
   };
   
   // Reset to inactive style
@@ -110,10 +111,21 @@ function initMapLayerToggles() {
     element.style.borderColor = '';
     element.style.boxShadow = '';
     element.style.fontWeight = '';
+    element.setAttribute('aria-selected', 'false');
   };
   
+  // First, set initial aria-selected attributes on all toggles for accessibility
   mapToggles.forEach(toggle => {
-    toggle.addEventListener('click', () => {
+    toggle.setAttribute('aria-selected', toggle.classList.contains('active') ? 'true' : 'false');
+    toggle.setAttribute('role', 'tab');
+  });
+  
+  mapToggles.forEach(toggle => {
+    toggle.addEventListener('click', (event) => {
+      // Prevent any default behavior
+      event.preventDefault();
+      event.stopPropagation();
+      
       const layer = toggle.dataset.layer;
       console.log(`Map toggle clicked: ${layer}`);
       
@@ -129,18 +141,21 @@ function initMapLayerToggles() {
       applyActiveStyle(toggle);
       console.log(`Applied active styles to ${layer} toggle`);
       
-      // Force DOM update with a small delay
-      setTimeout(() => {
+      // Mark as active using different approaches for better compatibility
+      toggle.dataset.active = 'true';
+      
+      // Force update the UI with requestAnimationFrame to ensure it happens before next render
+      requestAnimationFrame(() => {
         // Double-check active state persisted
         if (!toggle.classList.contains('active')) {
           console.warn(`Active class lost on ${layer}, reapplying`);
           toggle.classList.add('active');
           applyActiveStyle(toggle);
         }
-      }, 50);
-      
-      // Update the tactical map when layers change
-      updateTacticalMap(window.gameState, window.assets || []);
+        
+        // Update the tactical map when layers change
+        updateTacticalMap(window.gameState, window.assets || []);
+      });
     });
   });
   
@@ -149,8 +164,26 @@ function initMapLayerToggles() {
   if (terrainToggle) {
     terrainToggle.classList.add('active');
     applyActiveStyle(terrainToggle);
+    terrainToggle.dataset.active = 'true';
     console.log('Set initial active state on terrain toggle');
   }
+  
+  // Debug function to check toggle states - run this periodically
+  const debugMapToggles = () => {
+    document.querySelectorAll('.map-toggle').forEach(t => {
+      const layer = t.dataset.layer;
+      console.log(`DEBUG: ${layer} toggle:`, {
+        'classList.contains("active")': t.classList.contains('active'),
+        'aria-selected': t.getAttribute('aria-selected'),
+        'data-active': t.dataset.active,
+        'backgroundColor': t.style.backgroundColor
+      });
+    });
+  };
+  
+  // Run debug check initially and periodically
+  debugMapToggles();
+  setInterval(debugMapToggles, 3000); // Check every 3 seconds
 }
 
 // Initialize panel dragging
@@ -257,10 +290,23 @@ function updateTacticalMap(gameState = {}, assets = []) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
   
-  // Get active layers
-  const showTerrain = document.querySelector('[data-layer="terrain"]').classList.contains('active');
-  const showRF = document.querySelector('[data-layer="rf"]').classList.contains('active');
-  const showEnemy = document.querySelector('[data-layer="enemy"]').classList.contains('active');
+  // Get active layers - check multiple attributes for maximum compatibility
+  const terrainToggle = document.querySelector('[data-layer="terrain"]');
+  const rfToggle = document.querySelector('[data-layer="rf"]');
+  const enemyToggle = document.querySelector('[data-layer="enemy"]');
+  
+  const isActive = (element) => {
+    if (!element) return false;
+    return element.classList.contains('active') || 
+           element.getAttribute('aria-selected') === 'true' ||
+           element.dataset.active === 'true';
+  };
+  
+  const showTerrain = isActive(terrainToggle);
+  const showRF = isActive(rfToggle);
+  const showEnemy = isActive(enemyToggle);
+  
+  console.log(`Active layers - Terrain: ${showTerrain}, RF: ${showRF}, Enemy: ${showEnemy}`);
   
   // Clear canvas
   ctx.clearRect(0, 0, width, height);
