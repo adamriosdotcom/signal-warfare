@@ -32,6 +32,7 @@ class GameEngine {
       isDown: false,
       button: -1
     };
+    this.userMoving = false; // Track when the user is actively moving with keyboard
     
     // Game state
     this.ecs = null;
@@ -402,6 +403,9 @@ class GameEngine {
     this.camera.position.copy(this.initialCameraPosition || new THREE.Vector3(0, 5000, 1200));
     this.camera.lookAt(this.initialCameraTarget || new THREE.Vector3(0, 0, -CONFIG.terrain.height * 0.5));
     
+    // Reset movement flag
+    this.userMoving = false;
+    
     console.log("Camera reset to vaporwave view position");
   }
   
@@ -435,6 +439,15 @@ class GameEngine {
     
     window.addEventListener('keyup', (event) => {
       this.keys[event.key] = false;
+      
+      // Check if any movement keys are still pressed
+      const anyMovementKeyPressed = ['w', 'a', 's', 'd', 'q', 'e', 'z', 'x', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']
+        .some(key => this.keys[key]);
+      
+      // If no movement keys are pressed, reset the userMoving flag
+      if (!anyMovementKeyPressed) {
+        this.userMoving = false;
+      }
     });
     
     // Mouse input
@@ -2611,6 +2624,12 @@ class GameEngine {
     const TERRAIN_HEIGHT = -1000; // Position of terrain in Y coordinate
     const SAFE_DISTANCE = MIN_CAMERA_HEIGHT - TERRAIN_HEIGHT; // Safety margin
     
+    // Check if this is a movement or rotation key, and set userMoving flag
+    const movementKeys = ['w', 'a', 's', 'd', 'q', 'e', 'z', 'x', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
+    if (movementKeys.includes(key)) {
+      this.userMoving = true;
+    }
+    
     // WASD movement (translation)
     if (key === 'w') {
       // Move forward
@@ -3162,16 +3181,16 @@ class GameEngine {
       }
     });
     
-    // Update vaporwave terrain animation only when mission is not active
-    if (this.terrain && this.terrain2 && this.terrainHeight && !gameState.missionActive) {
+    // Update vaporwave terrain animation only when mission is not active and user is not manually moving
+    if (this.terrain && this.terrain2 && this.terrainHeight && !gameState.missionActive && !this.userMoving) {
       const speed = 0.04; // Slightly slower for smoother effect with larger terrain
       
       // When the first terrain reaches the end, reset it
       this.terrain.position.z = (elapsedTime * this.terrainHeight * speed) % this.terrainHeight;
       // Position the second terrain behind the first
       this.terrain2.position.z = ((elapsedTime * this.terrainHeight * speed) % this.terrainHeight) - this.terrainHeight;
-    } else if (this.terrain && this.terrain2 && gameState.missionActive) {
-      // Stop terrain at fixed positions once game starts
+    } else if (this.terrain && this.terrain2 && (gameState.missionActive || this.userMoving)) {
+      // Stop terrain at fixed positions when game starts or user is controlling movement
       this.terrain.position.z = 0;
       this.terrain2.position.z = -this.terrainHeight;
     }
