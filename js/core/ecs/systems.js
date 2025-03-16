@@ -1242,11 +1242,11 @@ class AISystem extends System {
     
     // Process drone-specific behavior
     if (this.entityManager.hasComponent(entityId, ComponentTypes.DRONE)) {
-      this.processDroneStateMachine(entityId, aiComponent);
+      this.processDroneStateMachine(entityId, aiComponent, deltaTime);
     }
   }
   
-  processDroneStateMachine(entityId, aiComponent) {
+  processDroneStateMachine(entityId, aiComponent, deltaTime) {
     const droneComponent = this.entityManager.getComponent(entityId, ComponentTypes.DRONE);
     const transformComponent = this.entityManager.getComponent(entityId, ComponentTypes.TRANSFORM);
     
