@@ -446,58 +446,990 @@ class GameEngine {
     console.log('Panel positions defined in CSS');
   }
   
-  // Create terrain
+  // Create advanced 3D terrain
   createTerrain() {
-    // Create enhanced terrain with detail
+    console.log("Creating high-detail 3D terrain...");
+    
+    // Higher resolution for more detailed terrain - 512x512 gives much more detail
+    const resolution = 512;
     const geometry = new THREE.PlaneGeometry(
       CONFIG.terrain.width, 
       CONFIG.terrain.height, 
-      256, 256 // More divisions for detailed terrain
+      resolution - 1, 
+      resolution - 1 // Use resolution-1 for segments (creates 'resolution' number of vertices)
     );
     
-    // Generate terrain height map and texture data
-    const terrainData = this.generateTerrainData(geometry);
+    // Generate advanced terrain with multi-layer noise
+    const terrainData = this.generateAdvancedTerrainData(geometry, resolution);
     
-    // Create terrain material that showcases the 3D features and biome colors
+    // Create texture canvas for detailed terrain texturing
+    const textureCanvas = this.createTerrainTextureCanvas(terrainData, resolution);
+    const terrainTexture = new THREE.CanvasTexture(textureCanvas);
+    terrainTexture.wrapS = terrainTexture.wrapT = THREE.RepeatWrapping;
+    terrainTexture.repeat.set(4, 4); // Repeat to avoid stretching
+    
+    // Create normal map for added detail
+    const normalCanvas = this.createTerrainNormalMap(terrainData, resolution);
+    const normalTexture = new THREE.CanvasTexture(normalCanvas);
+    normalTexture.wrapS = normalTexture.wrapT = THREE.RepeatWrapping;
+    normalTexture.repeat.set(4, 4);
+    
+    // Create terrain material with advanced texturing and normal mapping
     const material = new THREE.MeshStandardMaterial({
-      color: 0xffffff, // White base to show vertex colors properly
-      metalness: 0.0,  // Non-metallic terrain
-      roughness: 1.0,  // Very rough surface
-      flatShading: false, // Enable smooth shading
+      map: terrainTexture,
+      normalMap: normalTexture,
+      normalScale: new THREE.Vector2(1, 1),
+      metalness: 0.1,
+      roughness: 0.9,
       wireframe: false,
-      side: THREE.DoubleSide,
-      vertexColors: true // Enable vertex colors for biome visualization - critical!
+      side: THREE.FrontSide,
+      vertexColors: true // Still use vertex colors for additional detail
     });
     
-    console.log("Created enhanced terrain material with vertex colors enabled");
+    console.log("Created advanced terrain material with texturing and normal mapping");
     
     // Create terrain mesh
     this.terrain = new THREE.Mesh(geometry, material);
-    this.terrain.rotation.x = Math.PI / 2;
+    this.terrain.rotation.x = -Math.PI / 2; // Rotate to face up
     this.terrain.receiveShadow = true;
+    this.terrain.castShadow = true; // Allow terrain to cast shadows for more realism
     
-    // Store terrain data for later use (e.g. for height-based calculations)
+    // Store terrain data for later use
     this.terrain.userData.heightData = terrainData.heightData;
     this.terrain.userData.biomeData = terrainData.biomeData;
     
+    // Add atmospheric fog for depth perception
+    this.scene.fog = new THREE.FogExp2(0x6ba4cc, 0.00025);
+    
+    // Add terrain to scene
     this.scene.add(this.terrain);
     
-    // Add grid
+    // Create water surface for more realistic terrain
+    this.createWaterSurface();
+    
+    // Add trees, rocks and other details based on biome data
+    this.addTerrainDetails(terrainData);
+    
+    // Add grid that follows terrain contours
     const gridSize = CONFIG.terrain.width;
-    const gridDivisions = gridSize / 500; // Every 500 meters
+    const gridDivisions = gridSize / 500;
     const gridHelper = new THREE.GridHelper(
       gridSize, gridDivisions, 0x405060, 0x283848
     );
     gridHelper.position.y = 1;
     gridHelper.rotation.x = Math.PI / 2;
-    
     this.scene.add(gridHelper);
     
-    // Add skybox
-    this.createSkybox();
+    // Create enhanced skybox with stars
+    this.createAdvancedSkybox();
+    
+    console.log("3D terrain creation complete");
   }
   
-  // Generate terrain data (height and biome information)
+  // Create water surface
+  createWaterSurface() {
+    // Create a water plane slightly below sea level
+    const waterGeometry = new THREE.PlaneGeometry(
+      CONFIG.terrain.width * 1.5, // Make larger than terrain
+      CONFIG.terrain.height * 1.5,
+      1, 1 // We don't need many segments for water
+    );
+    
+    // Create water material with animated shader
+    const waterMaterial = new THREE.MeshPhysicalMaterial({
+      color: 0x0066cc,
+      metalness: 0.0,
+      roughness: 0.1,
+      transparent: true,
+      opacity: 0.85,
+      envMapIntensity: 1.0,
+      clearcoat: 1.0,
+      clearcoatRoughness: 0.1,
+      side: THREE.FrontSide
+    });
+    
+    // Create water mesh
+    const water = new THREE.Mesh(waterGeometry, waterMaterial);
+    water.rotation.x = -Math.PI / 2; // Align with terrain
+    water.position.y = -20; // Set at sea level (negative because we'll flip the terrain)
+    
+    // Add to scene
+    this.scene.add(water);
+    
+    // Store reference
+    this.water = water;
+    
+    // Animate water with shader
+    const clock = new THREE.Clock();
+    water.userData = {
+      update: function(delta, water) {
+        if (water && water.material) {
+          const time = clock.getElapsedTime() * 0.5;
+          water.position.y = -20 + Math.sin(time * 0.2) * 2; // Gentle bobbing motion
+          water.material.opacity = 0.8 + Math.sin(time * 0.5) * 0.05; // Subtle opacity changes
+        }
+      }
+    };
+    
+    // Add to visualization objects for animation updates
+    this.visualizationObjects.set('water', water);
+  }
+  
+  // Add terrain details like trees, rocks based on biome data
+  addTerrainDetails(terrainData) {
+    // Number of details to add - don't add too many or it will hurt performance
+    const detailCount = 200;
+    
+    // Create detail objects container
+    const detailsGroup = new THREE.Group();
+    
+    // Function to get height at specific world position
+    const getHeightAt = (x, z) => {
+      const gridSize = terrainData.heightData.length;
+      const ix = Math.floor((x / CONFIG.terrain.width + 0.5) * (gridSize - 1));
+      const iz = Math.floor((z / CONFIG.terrain.height + 0.5) * (gridSize - 1));
+      
+      if (ix >= 0 && ix < gridSize && iz >= 0 && iz < gridSize) {
+        return terrainData.heightData[ix][iz];
+      }
+      return 0;
+    };
+    
+    // Create tree geometry once and reuse
+    const treeGeometry = new THREE.ConeGeometry(15, 50, 5);
+    const treeTrunkGeometry = new THREE.CylinderGeometry(5, 5, 20, 5);
+    
+    // Create rock geometry once and reuse
+    const rockGeometry = new THREE.DodecahedronGeometry(10, 0);
+    
+    // Add details randomly according to biome
+    for (let i = 0; i < detailCount; i++) {
+      // Random position
+      const x = (Math.random() - 0.5) * CONFIG.terrain.width * 0.9; // Stay away from edges
+      const z = (Math.random() - 0.5) * CONFIG.terrain.height * 0.9;
+      
+      // Get terrain height and biome at this position
+      const y = getHeightAt(x, z);
+      
+      // Skip if underwater or too high
+      if (y < 0 || y > 400) continue;
+      
+      // Get biome type at this position
+      const gridSize = terrainData.biomeData.length;
+      const ix = Math.floor((x / CONFIG.terrain.width + 0.5) * (gridSize - 1));
+      const iz = Math.floor((z / CONFIG.terrain.height + 0.5) * (gridSize - 1));
+      
+      let biome = 'OPEN';
+      if (ix >= 0 && ix < gridSize && iz >= 0 && iz < gridSize) {
+        biome = terrainData.biomeData[ix][iz];
+      }
+      
+      // Create different objects based on biome
+      let detailObject;
+      
+      if (biome === 'FOREST' && Math.random() < 0.7) {
+        // Create tree
+        const treeTop = new THREE.Mesh(
+          treeGeometry,
+          new THREE.MeshLambertMaterial({ color: 0x006633 })
+        );
+        treeTop.position.y = 35; // Position top relative to trunk
+        
+        const treeTrunk = new THREE.Mesh(
+          treeTrunkGeometry,
+          new THREE.MeshLambertMaterial({ color: 0x663300 })
+        );
+        treeTrunk.position.y = 10; // Position trunk at base
+        
+        // Create tree group
+        detailObject = new THREE.Group();
+        detailObject.add(treeTop);
+        detailObject.add(treeTrunk);
+        
+        // Scale by random amount for variety
+        const scale = 0.5 + Math.random() * 1.0;
+        detailObject.scale.set(scale, scale, scale);
+      } 
+      else if ((biome === 'OPEN' || biome === 'URBAN') && Math.random() < 0.3) {
+        // Create rock
+        detailObject = new THREE.Mesh(
+          rockGeometry,
+          new THREE.MeshLambertMaterial({ color: 0x888888 })
+        );
+        
+        // Randomize rock rotation for variety
+        detailObject.rotation.set(
+          Math.random() * Math.PI,
+          Math.random() * Math.PI,
+          Math.random() * Math.PI
+        );
+        
+        // Scale by random amount for variety
+        const scale = 0.5 + Math.random() * 1.5;
+        detailObject.scale.set(scale, scale * 0.7, scale);
+      }
+      
+      // If we created an object, position it on terrain
+      if (detailObject) {
+        detailObject.position.set(x, y, z);
+        detailObject.castShadow = true;
+        detailObject.receiveShadow = true;
+        detailsGroup.add(detailObject);
+      }
+    }
+    
+    // Add details group to scene
+    this.scene.add(detailsGroup);
+    
+    // Store reference
+    this.terrainDetails = detailsGroup;
+  }
+  
+  // Generate advanced terrain data with improved algorithms
+  generateAdvancedTerrainData(geometry, resolution) {
+    console.log("Generating advanced 3D terrain with multi-layered noise");
+    
+    // 2D arrays to store height and biome data
+    const heightData = new Array(resolution).fill().map(() => new Array(resolution).fill(0));
+    const biomeData = new Array(resolution).fill().map(() => new Array(resolution).fill('OPEN'));
+    
+    // More dramatic scale factors
+    const scales = {
+      continent: 0.00008, // Very large features (mountains, valleys)
+      mountains: 0.0003,  // Large mountain ranges
+      hills: 0.0015,      // Hills and medium features
+      details: 0.008,     // Small terrain details
+      microDetails: 0.03  // Very small details like rocks
+    };
+    
+    // Scale modifiers for different features
+    const amplitudes = {
+      continent: CONFIG.terrain.maxElevation * 1.0,
+      mountains: CONFIG.terrain.maxElevation * 0.8,
+      hills: CONFIG.terrain.maxElevation * 0.4,
+      details: CONFIG.terrain.maxElevation * 0.1,
+      microDetails: CONFIG.terrain.maxElevation * 0.05
+    };
+    
+    // We'll use simplex-like noise and multiple layers
+    const vertices = geometry.attributes.position.array;
+    const colors = new Float32Array(vertices.length);
+    
+    // Create additional feature maps
+    const riverMap = this.generateRiverMap(resolution);
+    const mountainRanges = this.generateMountainRanges(resolution);
+    const temperatureMap = this.generateTemperatureMap(resolution);
+    const moistureMap = this.generateMoistureMap(resolution, riverMap);
+    
+    // Process each vertex
+    for (let i = 0, j = 0; i < vertices.length; i += 3, j += 3) {
+      // Get x and z coordinates
+      const x = vertices[i];
+      const z = vertices[i + 2];
+      
+      // Index in the grid
+      const ix = Math.floor((x / CONFIG.terrain.width + 0.5) * (resolution - 1));
+      const iz = Math.floor((z / CONFIG.terrain.height + 0.5) * (resolution - 1));
+      
+      // Get noise values at different scales
+      const continentNoise = this.improvedNoise(x * scales.continent, z * scales.continent, 0.1);
+      const mountainsNoise = this.improvedNoise(x * scales.mountains, z * scales.mountains, 0.5);
+      const hillsNoise = this.improvedNoise(x * scales.hills, z * scales.hills, 0.7);
+      const detailsNoise = this.improvedNoise(x * scales.details, z * scales.details, 1.2);
+      const microNoise = this.improvedNoise(x * scales.microDetails, z * scales.microDetails, 2.0);
+      
+      // Mountain ranges - use 'ridge' noise for more realistic mountains
+      const mountainRidgeNoise = this.ridgedNoise(x * scales.mountains, z * scales.mountains) * 
+                                mountainRanges[ix][iz];
+      
+      // Get features at this position
+      const riverValue = riverMap[ix][iz];
+      const temperatureValue = temperatureMap[ix][iz];
+      const moistureValue = moistureMap[ix][iz];
+      
+      // Add crater/caldera in one spot for a volcano/impact crater
+      const craterCenterX = CONFIG.terrain.width * 0.2;
+      const craterCenterZ = CONFIG.terrain.height * -0.3;
+      const craterRadius = CONFIG.terrain.width * 0.1;
+      const distToCrater = Math.sqrt(Math.pow(x - craterCenterX, 2) + Math.pow(z - craterCenterZ, 2));
+      const craterValue = Math.max(0, 1 - Math.pow(distToCrater / craterRadius, 2));
+      const craterHeight = craterValue > 0.3 ? 
+        (-Math.pow((craterValue - 0.7) / 0.3, 2) + 1) * 120 : 0;
+      
+      // Calculate combined height
+      let height = (
+        continentNoise * amplitudes.continent +
+        mountainsNoise * amplitudes.mountains +
+        hillsNoise * amplitudes.hills +
+        detailsNoise * amplitudes.details +
+        microNoise * amplitudes.microDetails +
+        mountainRidgeNoise * amplitudes.mountains * 1.2 +
+        craterHeight
+      );
+      
+      // Apply river carving
+      const riverDepth = 50;
+      const riverWidth = 100;
+      if (riverValue > 0) {
+        const riverFactor = Math.pow(riverValue, 0.5);
+        height -= riverFactor * riverDepth;
+      }
+      
+      // Apply erosion - lower heights near steep slopes for more realistic terrain
+      let avgNeighborHeight = 0;
+      let neighborCount = 0;
+      
+      // Check neighboring heights in a small sampling
+      for (let nx = -2; nx <= 2; nx += 2) {
+        for (let nz = -2; nz <= 2; nz += 2) {
+          const nix = ix + nx;
+          const niz = iz + nz;
+          
+          if (nix >= 0 && nix < resolution && niz >= 0 && niz < resolution) {
+            // We may not have calculated this neighbor's height yet
+            if (heightData[nix][niz] !== 0) {
+              avgNeighborHeight += heightData[nix][niz];
+              neighborCount++;
+            }
+          }
+        }
+      }
+      
+      if (neighborCount > 0) {
+        avgNeighborHeight /= neighborCount;
+        // Apply erosion to high areas
+        if (height > avgNeighborHeight + 50 && height > 100) {
+          const erosionFactor = Math.min(1, (height - avgNeighborHeight) / 200);
+          height -= erosionFactor * 30;
+        }
+      }
+      
+      // Set minimum height for water bodies
+      height = Math.max(-30, height);
+      
+      // Store height in data array
+      if (ix >= 0 && ix < resolution && iz >= 0 && iz < resolution) {
+        heightData[ix][iz] = height;
+      }
+      
+      // Set y position to height
+      vertices[i + 1] = height;
+      
+      // Determine biome based on height, temperature and moisture
+      let biomeType = 'OPEN';
+      let biomeColor;
+      
+      if (height < 0) {
+        // Water areas
+        biomeType = 'WATER';
+        const depthFactor = Math.min(1, Math.abs(height) / 50);
+        biomeColor = new THREE.Color(
+          0.1 - depthFactor * 0.1,
+          0.2 - depthFactor * 0.15,
+          0.8 - depthFactor * 0.3
+        );
+      } 
+      else if (height < 5 && riverValue > 0.7) {
+        // River
+        biomeType = 'WATER';
+        biomeColor = new THREE.Color(0.1, 0.4, 0.8);
+      }
+      else {
+        // Land biomes based on temperature and moisture
+        if (height > 300) {
+          // High mountains - snow
+          biomeType = 'OPEN';
+          const snowAmount = Math.min(1, (height - 300) / 200);
+          biomeColor = new THREE.Color(
+            0.9 + snowAmount * 0.1,
+            0.9 + snowAmount * 0.1,
+            0.9 + snowAmount * 0.1
+          );
+        }
+        else if (height > 150) {
+          // Mountain/rock
+          biomeType = 'URBAN'; // Using urban type for rocky areas
+          const rockGray = 0.4 + (height - 150) / 150 * 0.3;
+          biomeColor = new THREE.Color(rockGray, rockGray, rockGray);
+        }
+        else if (moistureValue > 0.6 && temperatureValue > 0.4) {
+          // Forest
+          biomeType = 'FOREST';
+          const forestGreen = 0.2 + temperatureValue * 0.1;
+          biomeColor = new THREE.Color(0.05, forestGreen, 0.05);
+        }
+        else if (moistureValue < 0.3 && temperatureValue > 0.6) {
+          // Desert
+          biomeType = 'OPEN';
+          biomeColor = new THREE.Color(0.85, 0.8, 0.5);
+        }
+        else if (moistureValue > 0.5 && temperatureValue < 0.4) {
+          // Tundra
+          biomeType = 'OPEN';
+          biomeColor = new THREE.Color(0.7, 0.7, 0.65);
+        }
+        else {
+          // Grassland/plains
+          biomeType = 'OPEN';
+          const grassGreen = 0.3 + moistureValue * 0.2;
+          biomeColor = new THREE.Color(0.2, grassGreen, 0.1);
+        }
+      }
+      
+      // Store biome in data array
+      if (ix >= 0 && ix < resolution && iz >= 0 && iz < resolution) {
+        biomeData[ix][iz] = biomeType;
+      }
+      
+      // Set vertex color
+      colors[j] = biomeColor.r;
+      colors[j + 1] = biomeColor.g;
+      colors[j + 2] = biomeColor.b;
+    }
+    
+    // Update geometry
+    geometry.attributes.position.needsUpdate = true;
+    
+    // Add vertex colors
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    
+    // Compute normals for proper lighting
+    geometry.computeVertexNormals();
+    
+    console.log("Advanced terrain generation complete");
+    return { heightData, biomeData };
+  }
+  
+  // Better noise function for improved terrain
+  improvedNoise(x, y, persistence) {
+    // A better noise function using multiple octaves
+    let total = 0;
+    let frequency = 1;
+    let amplitude = 1;
+    let maxValue = 0;
+    
+    // Add several octaves of noise for more natural results
+    for (let i = 0; i < 6; i++) {
+      total += this.simpleNoise(x * frequency, y * frequency) * amplitude;
+      maxValue += amplitude;
+      amplitude *= persistence;
+      frequency *= 2;
+    }
+    
+    // Return normalized result
+    return total / maxValue;
+  }
+  
+  // Ridge noise for mountain ranges
+  ridgedNoise(x, y) {
+    // Create ridged noise (sharp peaks) for mountain ranges
+    const noise = this.simpleNoise(x, y);
+    return 1 - Math.abs(noise - 0.5) * 2;
+  }
+  
+  // Generate a river map
+  generateRiverMap(resolution) {
+    const map = new Array(resolution).fill().map(() => new Array(resolution).fill(0));
+    
+    // Generate several rivers
+    const riverCount = 5;
+    for (let r = 0; r < riverCount; r++) {
+      // Random starting position
+      let x = Math.floor(Math.random() * resolution);
+      let y = Math.floor(Math.random() * resolution);
+      
+      // Random direction bias
+      const dirBiasX = Math.random() * 2 - 1;
+      const dirBiasY = Math.random() * 2 - 1;
+      
+      // River length
+      const length = Math.floor(resolution * (0.3 + Math.random() * 0.5));
+      
+      // River width factor
+      let width = 3 + Math.random() * 5;
+      
+      // Create the river
+      for (let i = 0; i < length; i++) {
+        // Mark current position as river
+        if (x >= 0 && x < resolution && y >= 0 && y < resolution) {
+          // Draw river with width
+          for (let wx = -width; wx <= width; wx++) {
+            for (let wy = -width; wy <= width; wy++) {
+              const nx = Math.floor(x + wx);
+              const ny = Math.floor(y + wy);
+              
+              if (nx >= 0 && nx < resolution && ny >= 0 && ny < resolution) {
+                const distToCenter = Math.sqrt(wx * wx + wy * wy);
+                if (distToCenter <= width) {
+                  // Stronger river in center, weaker at edges
+                  const strength = 1 - (distToCenter / width);
+                  map[nx][ny] = Math.max(map[nx][ny], strength);
+                }
+              }
+            }
+          }
+          
+          // Change width occasionally
+          if (i % 20 === 0) {
+            width = Math.max(2, width + (Math.random() * 4 - 2));
+          }
+        }
+        
+        // Move in a somewhat random direction with bias
+        const dirX = dirBiasX * 0.5 + Math.random() - 0.5;
+        const dirY = dirBiasY * 0.5 + Math.random() - 0.5;
+        
+        // Normalize direction
+        const dirLength = Math.sqrt(dirX * dirX + dirY * dirY);
+        const nx = dirX / dirLength;
+        const ny = dirY / dirLength;
+        
+        // Move by a random distance
+        const moveAmount = 1 + Math.random() * 2;
+        x += Math.floor(nx * moveAmount);
+        y += Math.floor(ny * moveAmount);
+      }
+    }
+    
+    return map;
+  }
+  
+  // Generate mountain ranges
+  generateMountainRanges(resolution) {
+    const map = new Array(resolution).fill().map(() => new Array(resolution).fill(0));
+    
+    // Generate several mountain ranges
+    const rangeCount = 3;
+    for (let r = 0; r < rangeCount; r++) {
+      // Random starting position
+      let x = Math.floor(Math.random() * resolution);
+      let y = Math.floor(Math.random() * resolution);
+      
+      // Random direction for the range
+      const dirX = Math.random() * 2 - 1;
+      const dirY = Math.random() * 2 - 1;
+      
+      // Range length
+      const length = Math.floor(resolution * (0.3 + Math.random() * 0.4));
+      
+      // Range width factor
+      let width = 20 + Math.random() * 30;
+      
+      // Create the mountain range
+      for (let i = 0; i < length; i++) {
+        // Mark current position as mountain
+        if (x >= 0 && x < resolution && y >= 0 && y < resolution) {
+          // Draw mountain range with width
+          for (let wx = -width; wx <= width; wx++) {
+            for (let wy = -width; wy <= width; wy++) {
+              const nx = Math.floor(x + wx);
+              const ny = Math.floor(y + wy);
+              
+              if (nx >= 0 && nx < resolution && ny >= 0 && ny < resolution) {
+                const distToCenter = Math.sqrt(wx * wx + wy * wy);
+                if (distToCenter <= width) {
+                  // Stronger in center, weaker at edges
+                  const strength = 1 - (distToCenter / width);
+                  map[nx][ny] = Math.max(map[nx][ny], strength);
+                }
+              }
+            }
+          }
+          
+          // Change width occasionally
+          if (i % 10 === 0) {
+            width = Math.max(15, width + (Math.random() * 15 - 7.5));
+          }
+        }
+        
+        // Move in the range direction with some randomness
+        const moveX = dirX + (Math.random() * 0.4 - 0.2);
+        const moveY = dirY + (Math.random() * 0.4 - 0.2);
+        
+        // Normalize direction
+        const moveLength = Math.sqrt(moveX * moveX + moveY * moveY);
+        const nx = moveX / moveLength;
+        const ny = moveY / moveLength;
+        
+        // Move
+        x += Math.floor(nx * (2 + Math.random() * 3));
+        y += Math.floor(ny * (2 + Math.random() * 3));
+      }
+    }
+    
+    return map;
+  }
+  
+  // Generate temperature map
+  generateTemperatureMap(resolution) {
+    const map = new Array(resolution).fill().map(() => new Array(resolution).fill(0));
+    
+    // Generate temperature with gradient and noise
+    for (let x = 0; x < resolution; x++) {
+      for (let y = 0; y < resolution; y++) {
+        // Base temperature from y position (north-south gradient)
+        const baseTemp = 1 - (y / resolution);
+        
+        // Add noise for local variations
+        const noiseTemp = this.simpleNoise(x * 0.01, y * 0.01) * 0.3;
+        
+        // Combine
+        map[x][y] = Math.max(0, Math.min(1, baseTemp + noiseTemp - 0.15));
+      }
+    }
+    
+    return map;
+  }
+  
+  // Generate moisture map
+  generateMoistureMap(resolution, riverMap) {
+    const map = new Array(resolution).fill().map(() => new Array(resolution).fill(0));
+    
+    // Generate moisture with noise and river influence
+    for (let x = 0; x < resolution; x++) {
+      for (let y = 0; y < resolution; y++) {
+        // Base moisture from noise
+        const baseMoisture = this.simpleNoise(x * 0.005, y * 0.005);
+        
+        // Add river influence - higher moisture near rivers
+        const riverInfluence = riverMap[x][y];
+        
+        // Calculate distance to nearest river
+        let minDistance = resolution;
+        const searchRadius = 20;
+        
+        for (let nx = -searchRadius; nx <= searchRadius; nx++) {
+          for (let ny = -searchRadius; ny <= searchRadius; ny++) {
+            const rx = x + nx;
+            const ry = y + ny;
+            
+            if (rx >= 0 && rx < resolution && ry >= 0 && ry < resolution && riverMap[rx][ry] > 0.5) {
+              const dist = Math.sqrt(nx * nx + ny * ny);
+              minDistance = Math.min(minDistance, dist);
+            }
+          }
+        }
+        
+        // River proximity factor
+        const riverProximity = Math.max(0, 1 - (minDistance / searchRadius));
+        
+        // Combine factors
+        map[x][y] = Math.max(0, Math.min(1, 
+          baseMoisture * 0.6 + 
+          riverInfluence * 0.2 + 
+          riverProximity * 0.2
+        ));
+      }
+    }
+    
+    return map;
+  }
+  
+  // Create detailed terrain texture canvas
+  createTerrainTextureCanvas(terrainData, resolution) {
+    // Create a canvas for the terrain texture
+    const textureResolution = 1024; // Higher res for better detail
+    const canvas = document.createElement('canvas');
+    canvas.width = textureResolution;
+    canvas.height = textureResolution;
+    const ctx = canvas.getContext('2d');
+    
+    // Fill with base color
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(0, 0, textureResolution, textureResolution);
+    
+    // Create texture from height and biome data
+    const imageData = ctx.getImageData(0, 0, textureResolution, textureResolution);
+    const data = imageData.data;
+    
+    // Helper function to set pixel color
+    const setPixel = (x, y, r, g, b, a = 255) => {
+      const index = (y * textureResolution + x) * 4;
+      data[index] = r;
+      data[index + 1] = g;
+      data[index + 2] = b;
+      data[index + 3] = a;
+    };
+    
+    // Texture generation
+    for (let x = 0; x < textureResolution; x++) {
+      for (let y = 0; y < textureResolution; y++) {
+        // Map texture coordinates to terrain data coordinates
+        const terrainX = Math.floor((x / textureResolution) * resolution);
+        const terrainY = Math.floor((y / textureResolution) * resolution);
+        
+        // Get height and biome data
+        let height = 0;
+        let biome = 'OPEN';
+        
+        if (terrainX >= 0 && terrainX < resolution && terrainY >= 0 && terrainY < resolution) {
+          height = terrainData.heightData[terrainX][terrainY];
+          biome = terrainData.biomeData[terrainX][terrainY];
+        }
+        
+        // Base colors for different biomes
+        let r, g, b;
+        
+        if (height < 0) {
+          // Water - deep blue
+          const depth = Math.min(1, Math.abs(height) / 50);
+          r = 10 + (1 - depth) * 20;
+          g = 50 + (1 - depth) * 50;
+          b = 150 + (1 - depth) * 50;
+        }
+        else if (height > 300) {
+          // Snow - white with slight blue tint
+          const snowAmount = Math.min(1, (height - 300) / 200);
+          r = 220 + snowAmount * 35;
+          g = 220 + snowAmount * 35;
+          b = 230 + snowAmount * 25;
+        }
+        else if (height > 150) {
+          // Mountains - gray
+          const rockHeight = (height - 150) / 150;
+          r = 100 + rockHeight * 50;
+          g = 100 + rockHeight * 50;
+          b = 100 + rockHeight * 50;
+        }
+        else if (biome === 'FOREST') {
+          // Forest - green
+          r = 20 + Math.random() * 10;
+          g = 70 + Math.random() * 30;
+          b = 20 + Math.random() * 10;
+        }
+        else if (biome === 'OPEN') {
+          // Grassland - lighter green
+          r = 50 + Math.random() * 20;
+          g = 120 + Math.random() * 30;
+          b = 30 + Math.random() * 20;
+        }
+        else if (biome === 'URBAN') {
+          // Rocky/urban - brownish gray
+          r = 120 + Math.random() * 20;
+          g = 110 + Math.random() * 20;
+          b = 100 + Math.random() * 20;
+        }
+        else {
+          // Default - light brown
+          r = 150 + Math.random() * 20;
+          g = 140 + Math.random() * 20;
+          b = 100 + Math.random() * 20;
+        }
+        
+        // Add some noise for texture
+        const noise = Math.random() * 20 - 10;
+        r = Math.max(0, Math.min(255, r + noise));
+        g = Math.max(0, Math.min(255, g + noise));
+        b = Math.max(0, Math.min(255, b + noise));
+        
+        // Set pixel
+        setPixel(x, y, r, g, b);
+      }
+    }
+    
+    // Update canvas with new image data
+    ctx.putImageData(imageData, 0, 0);
+    
+    // Add some fine texture with canvas operations
+    ctx.globalCompositeOperation = 'overlay';
+    ctx.globalAlpha = 0.3;
+    
+    // Add noise pattern
+    for (let i = 0; i < 5000; i++) {
+      const x = Math.random() * textureResolution;
+      const y = Math.random() * textureResolution;
+      const size = 1 + Math.random() * 3;
+      ctx.fillStyle = Math.random() > 0.5 ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+      ctx.fillRect(x, y, size, size);
+    }
+    
+    return canvas;
+  }
+  
+  // Create normal map for terrain texturing
+  createTerrainNormalMap(terrainData, resolution) {
+    // Create a canvas for the normal map
+    const textureResolution = 1024;
+    const canvas = document.createElement('canvas');
+    canvas.width = textureResolution;
+    canvas.height = textureResolution;
+    const ctx = canvas.getContext('2d');
+    
+    // Fill with neutral normal (0.5, 0.5, 1) - represents "up"
+    ctx.fillStyle = 'rgb(128, 128, 255)';
+    ctx.fillRect(0, 0, textureResolution, textureResolution);
+    
+    // Calculate normals from height data
+    const imageData = ctx.getImageData(0, 0, textureResolution, textureResolution);
+    const data = imageData.data;
+    
+    // Helper function to set normal map pixel
+    const setNormal = (x, y, nx, ny, nz) => {
+      // Convert normal from -1,1 range to 0,1 range for RGB
+      const r = Math.floor((nx * 0.5 + 0.5) * 255);
+      const g = Math.floor((ny * 0.5 + 0.5) * 255);
+      const b = Math.floor((nz * 0.5 + 0.5) * 255);
+      
+      const index = (y * textureResolution + x) * 4;
+      data[index] = r;
+      data[index + 1] = g;
+      data[index + 2] = b;
+      data[index + 3] = 255;
+    };
+    
+    // Calculate normals from height data
+    for (let x = 0; x < textureResolution; x++) {
+      for (let y = 0; y < textureResolution; y++) {
+        // Map texture coordinates to terrain data coordinates
+        const tx = Math.floor((x / textureResolution) * resolution);
+        const ty = Math.floor((y / textureResolution) * resolution);
+        
+        // Get height at this point and neighboring points
+        let height = 0;
+        let heightL = 0; // left
+        let heightR = 0; // right
+        let heightT = 0; // top
+        let heightB = 0; // bottom
+        
+        if (tx >= 0 && tx < resolution && ty >= 0 && ty < resolution) {
+          height = terrainData.heightData[tx][ty];
+          
+          // Get neighboring heights with bounds checking
+          heightL = (tx > 0) ? terrainData.heightData[tx-1][ty] : height;
+          heightR = (tx < resolution-1) ? terrainData.heightData[tx+1][ty] : height;
+          heightT = (ty > 0) ? terrainData.heightData[tx][ty-1] : height;
+          heightB = (ty < resolution-1) ? terrainData.heightData[tx][ty+1] : height;
+        }
+        
+        // Calculate normal
+        const scale = 1.0; // Scale factor for normal strength
+        let nx = (heightL - heightR) * scale;
+        let ny = (heightT - heightB) * scale;
+        let nz = 1.0;
+        
+        // Normalize
+        const length = Math.sqrt(nx * nx + ny * ny + nz * nz);
+        nx /= length;
+        ny /= length;
+        nz /= length;
+        
+        // Add some small random variation for texture
+        nx += (Math.random() * 0.1 - 0.05);
+        ny += (Math.random() * 0.1 - 0.05);
+        
+        // Renormalize
+        const length2 = Math.sqrt(nx * nx + ny * ny + nz * nz);
+        nx /= length2;
+        ny /= length2;
+        nz /= length2;
+        
+        // Set pixel
+        setNormal(x, y, nx, ny, nz);
+      }
+    }
+    
+    // Update canvas with new image data
+    ctx.putImageData(imageData, 0, 0);
+    
+    return canvas;
+  }
+  
+  // Create advanced skybox with stars
+  createAdvancedSkybox() {
+    // Create a more impressive skybox with stars and gradients
+    const skyboxSize = 15000;
+    
+    // Create the skybox geometry
+    const skyGeometry = new THREE.BoxGeometry(skyboxSize, skyboxSize, skyboxSize);
+    
+    // Create skybox cube map - we'll create a uniform sky with stars for simplicity
+    const skyMaterial = [];
+    
+    for (let i = 0; i < 6; i++) {
+      // Create a canvas for each face
+      const canvas = document.createElement('canvas');
+      canvas.width = 1024;
+      canvas.height = 1024;
+      const ctx = canvas.getContext('2d');
+      
+      // Create gradient background - from dark blue to black
+      let gradient;
+      if (i === 2) { // top
+        gradient = ctx.createLinearGradient(0, 0, 0, 1024);
+        gradient.addColorStop(0, '#000510');
+        gradient.addColorStop(1, '#000025');
+      } else if (i === 3) { // bottom
+        gradient = ctx.createLinearGradient(0, 0, 0, 1024);
+        gradient.addColorStop(0, '#000025');
+        gradient.addColorStop(1, '#000510');
+      } else {
+        gradient = ctx.createLinearGradient(0, 0, 0, 1024);
+        gradient.addColorStop(0, '#000025');
+        gradient.addColorStop(0.5, '#000816');
+        gradient.addColorStop(1, '#000025');
+      }
+      
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 1024, 1024);
+      
+      // Add stars
+      const starCount = 500;
+      ctx.fillStyle = 'white';
+      
+      for (let s = 0; s < starCount; s++) {
+        const x = Math.floor(Math.random() * 1024);
+        const y = Math.floor(Math.random() * 1024);
+        const size = Math.random() * 2;
+        const brightness = Math.random();
+        
+        ctx.globalAlpha = 0.4 + brightness * 0.6;
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      
+      // Add a few larger stars with glow
+      const bigStarCount = 20;
+      for (let s = 0; s < bigStarCount; s++) {
+        const x = Math.floor(Math.random() * 1024);
+        const y = Math.floor(Math.random() * 1024);
+        const size = 1 + Math.random() * 2;
+        
+        // Outer glow
+        const gradient = ctx.createRadialGradient(x, y, size, x, y, size * 4);
+        gradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
+        gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        
+        ctx.globalAlpha = 0.5;
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(x, y, size * 4, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Star center
+        ctx.globalAlpha = 1.0;
+        ctx.fillStyle = 'white';
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      
+      // Create material from canvas
+      const texture = new THREE.CanvasTexture(canvas);
+      skyMaterial.push(new THREE.MeshBasicMaterial({
+        map: texture,
+        side: THREE.BackSide
+      }));
+    }
+    
+    // Create and add skybox to scene
+    const skybox = new THREE.Mesh(skyGeometry, skyMaterial);
+    this.scene.add(skybox);
+    
+    return skybox;
+  }
+  
+  // Original simple terrain generator (keeping for backward compatibility)
   generateTerrainData(geometry) {
     console.log("Generating enhanced 3D terrain data");
     
