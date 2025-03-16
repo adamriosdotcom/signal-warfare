@@ -562,6 +562,8 @@ input:focus, textarea:focus, select:focus {
   grid-template-columns: repeat(2, 1fr);
   grid-gap: 5px;
   margin: 4px 0;
+  max-height: 100px; /* Increased to fit in larger panel */
+  overflow-y: auto;
 }
 
 .jammer-card {
@@ -663,8 +665,9 @@ input:focus, textarea:focus, select:focus {
   border: 1px solid var(--border-light);
   border-radius: 4px;
   padding: 4px 6px;
-  margin: 4px 0;
+  margin: 4px 0 8px 0; /* Added more bottom margin */
   display: none; /* Hidden by default, shown during placement */
+  font-size: 11px;
 }
 
 .jammer-placement-help.active {
@@ -721,8 +724,8 @@ input:focus, textarea:focus, select:focus {
 .action-buttons {
   display: flex;
   justify-content: space-between;
-  margin: 3px 0 0 0; /* Zero bottom margin */
-  gap: 4px; /* Even smaller gap */
+  margin: 5px 0 5px 0; /* Added bottom margin for visibility */
+  gap: 8px; /* Slightly increased gap */
 }
 
 .action-button {

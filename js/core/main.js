@@ -3172,7 +3172,13 @@ class GameEngine {
   
   // Create a visual effect when a jammer is deployed
   createJammerDeploymentEffect(position, type = 'STANDARD') {
-    // Get jammer color based on type
+    // Skip effect creation if no position or no scene
+    if (!position || !this.scene) {
+      console.warn('Cannot create deployment effect: Missing position or scene');
+      return;
+    }
+    
+    // Get jammer color based on type with improved color scheme
     const jammerColors = {
       'STANDARD': '#36f9b3', // Green glow
       'PRECISION': '#00b8d4', // Blue glow
@@ -3180,12 +3186,19 @@ class GameEngine {
       'MOBILE': '#ff4655'     // Red glow
     };
     
+    // Use the type-specific color or a default
     const color = new THREE.Color(jammerColors[type] || '#00a3ff');
+    let container = null;
     
-    // Create container for all effects
-    const container = new THREE.Group();
-    container.position.set(position.x, position.y, position.z);
-    this.scene.add(container);
+    try {
+      // Create container for all effects to allow easy cleanup
+      container = new THREE.Group();
+      container.position.set(
+        position.x || 0, 
+        position.y || 0, 
+        position.z || 0
+      );
+      this.scene.add(container);
     
     // 1. Create ground impact ring
     const ringGeometry = new THREE.RingGeometry(0, 10, 32);
@@ -3373,6 +3386,16 @@ class GameEngine {
     // Play a deployment sound effect
     if (window.playSound) {
       window.playSound('jammerDeploy');
+    }
+    
+    } catch (error) {
+      // Log error and clean up on failure
+      console.error("Error creating jammer deployment effect:", error);
+      
+      // Clean up if container was created
+      if (container && this.scene) {
+        this.scene.remove(container);
+      }
     }
   }
   

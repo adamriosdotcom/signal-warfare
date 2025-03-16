@@ -53,6 +53,28 @@ function createJammer(ecs, type, position, team = 'PLAYER') {
   // Log creation
   console.log(`Created ${type} jammer (ID: ${entityId}) at position (${position.x}, ${position.y}, ${position.z})`);
   
+  // Create visual deployment effect for player team jammers
+  if (team === 'PLAYER') {
+    // Show alert notification
+    const typeNames = {
+      'STANDARD': 'Standard',
+      'PRECISION': 'Precision',
+      'PULSE': 'Pulse',
+      'MOBILE': 'Mobile'
+    };
+    
+    const jammerName = typeNames[type] || type;
+    
+    if (window.showAlert) {
+      window.showAlert(`${jammerName} jammer deployed`, 'success');
+    }
+    
+    // Create visual effect if game engine is available
+    if (window.gameEngine && window.gameEngine.createJammerDeploymentEffect) {
+      window.gameEngine.createJammerDeploymentEffect(position, type);
+    }
+  }
+  
   return entityId;
 }
 
