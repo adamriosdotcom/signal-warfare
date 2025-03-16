@@ -24,6 +24,7 @@
   --alert-red: #ff4655;
   --alert-yellow: #ffde59;
   --alert-green: #36f9b3;
+  --alert-green-dark: #28b98a; /* Darker version for better contrast with white text */
   
   /* Signal Strength Colors */
   --signal-strong: #ff4655;
@@ -494,8 +495,8 @@ input:focus, textarea:focus, select:focus {
 }
 
 .map-toggle.active {
-  background-color: var(--alert-green);
-  color: var(--text-primary);
+  background-color: var(--alert-green-dark);
+  color: var(--text-bright);
 }
 
 #spectrum-display {
@@ -545,8 +546,8 @@ input:focus, textarea:focus, select:focus {
 }
 
 .asset-tab.active {
-  background-color: var(--alert-green);
-  color: var(--text-primary);
+  background-color: var(--alert-green-dark);
+  color: var(--text-bright);
 }
 
 .jammer-buttons {
@@ -569,9 +570,10 @@ input:focus, textarea:focus, select:focus {
 }
 
 .jammer-button.selected {
-  background-color: var(--alert-green);
-  border-color: var(--accent-tertiary);
-  box-shadow: 0 0 10px rgba(54, 249, 179, 0.4);
+  background-color: var(--alert-green-dark);
+  border-color: var(--alert-green);
+  box-shadow: 0 0 10px rgba(40, 185, 138, 0.5);
+  color: var(--text-bright);
 }
 
 .status-indicators {
@@ -697,10 +699,10 @@ input:focus, textarea:focus, select:focus {
 
 #raven-panel button#raven-send:hover, 
 #raven-panel button#raven-settings:hover {
-  background-color: var(--alert-green) !important;
-  border-color: var(--accent-tertiary) !important;
+  background-color: var(--alert-green-dark) !important;
+  border-color: var(--alert-green) !important;
   color: var(--text-bright) !important;
-  box-shadow: 0 0 10px rgba(54, 249, 179, 0.4) !important;
+  box-shadow: 0 0 10px rgba(40, 185, 138, 0.5) !important;
   transform: translateY(-1px) !important;
 }
 
