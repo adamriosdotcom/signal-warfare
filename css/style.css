@@ -525,7 +525,10 @@ input:focus, textarea:focus, select:focus {
 }
 
 .band.active {
-  color: var(--accent-primary);
+  color: var(--alert-green);
+  background-color: rgba(54, 249, 179, 0.1);
+  border-bottom: 1px solid var(--alert-green);
+  padding-bottom: 2px;
 }
 
 .asset-tabs {
