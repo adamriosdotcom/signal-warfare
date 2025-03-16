@@ -612,32 +612,171 @@ class GameEngine {
       console.warn(`Button element not found for jammer type: ${type}`);
     }
     
-    // Create temporary visual indicator
-    this.placementData = {
-      indicator: new THREE.Mesh(
-        new THREE.CylinderGeometry(0.5, 0.5, 1, 16),
-        new THREE.MeshBasicMaterial({ 
-          color: 0x0084ff,
-          transparent: true,
-          opacity: 0.7
-        })
-      )
-    };
+    // Create jammer placement indicator
+    this.createJammerIndicator(type);
     
-    this.scene.add(this.placementData.indicator);
+    // Show placement guidance tooltip
+    this.showAlert(`Click to place a ${CONFIG.jammers.types[type].name}`, 'info');
+  }
+  
+  // Create a visual indicator for jammer placement
+  createJammerIndicator(type) {
+    const jammerConfig = CONFIG.jammers.types[type];
+    if (!jammerConfig) return;
     
-    // Get jammer name safely with fallback
-    let jammerName = "Jammer";
-    try {
-      if (CONFIG.jammers.types[type] && CONFIG.jammers.types[type].name) {
-        jammerName = CONFIG.jammers.types[type].name;
-      }
-    } catch (e) {
-      console.error("Error getting jammer name:", e);
+    // Create indicator container
+    const indicator = new THREE.Group();
+    
+    // Create jammer model
+    const modelGeometry = new THREE.CylinderGeometry(0.5, 0.7, 1.5, 8);
+    const modelMaterial = new THREE.MeshLambertMaterial({ 
+      color: new THREE.Color('#00a3ff'),
+      transparent: true,
+      opacity: 0.8
+    });
+    const model = new THREE.Mesh(modelGeometry, modelMaterial);
+    model.position.y = 0.75; // Half height
+    indicator.add(model);
+    
+    // Create range visualization
+    const range = jammerConfig.range;
+    const rangeIndicator = new THREE.Mesh(
+      new THREE.CircleGeometry(range / 100, 64), // Scale down range for visualization
+      new THREE.MeshBasicMaterial({
+        color: new THREE.Color('#00a3ff'),
+        transparent: true,
+        opacity: 0.2,
+        side: THREE.DoubleSide
+      })
+    );
+    rangeIndicator.rotation.x = -Math.PI / 2; // Lay flat
+    rangeIndicator.position.y = 0.1; // Slightly above ground
+    indicator.add(rangeIndicator);
+    
+    // Add directional indicator for directional jammers
+    if (jammerConfig.defaultAntenna === 'HORN' || jammerConfig.defaultAntenna === 'HELIX') {
+      const antennaConfig = CONFIG.antennas.types[jammerConfig.defaultAntenna];
+      const beamWidth = antennaConfig.beamWidth * Math.PI / 180; // Convert to radians
+      
+      // Create directional cone
+      const coneGeometry = new THREE.ConeGeometry(1, range / 50, 32, 1, true);
+      const coneMaterial = new THREE.MeshBasicMaterial({
+        color: new THREE.Color('#00a3ff'),
+        transparent: true,
+        opacity: 0.15,
+        side: THREE.DoubleSide
+      });
+      const cone = new THREE.Mesh(coneGeometry, coneMaterial);
+      
+      // Position and scale cone
+      cone.rotation.x = Math.PI / 2; // Point forward
+      cone.scale.set(
+        Math.tan(beamWidth / 2) * (range / 50), // Width based on beam angle
+        Math.tan(beamWidth / 2) * (range / 50), // Height based on beam angle
+        1 // Keep length
+      );
+      
+      indicator.add(cone);
     }
     
-    // Show instructions
-    this.showAlert(`Select position to place ${jammerName}`, 'info');
+    // Store placement data
+    this.placementData = {
+      indicator: indicator,
+      type: type,
+      isValid: true,
+      model: model,
+      rangeIndicator: rangeIndicator
+    };
+    
+    // Add to scene
+    this.scene.add(indicator);
+    
+    // Position indicator at mouse position
+    if (this.mouse.worldPosition) {
+      indicator.position.set(
+        this.mouse.worldPosition.x,
+        this.mouse.worldPosition.y,
+        this.mouse.worldPosition.z + 0.1 // Slight offset
+      );
+    }
+    
+    // Add information panel above model
+    this.createJammerPlacementInfo(type, indicator);
+  }
+  
+  // Create information display for jammer placement
+  createJammerPlacementInfo(type, indicator) {
+    const jammerConfig = CONFIG.jammers.types[type];
+    
+    // Create floating text with jammer info
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 128;
+    const context = canvas.getContext('2d');
+    
+    // Create texture from canvas
+    const texture = new THREE.CanvasTexture(canvas);
+    
+    // Create panel material
+    const material = new THREE.SpriteMaterial({
+      map: texture,
+      transparent: true
+    });
+    
+    // Create sprite
+    const infoSprite = new THREE.Sprite(material);
+    infoSprite.scale.set(5, 2.5, 1);
+    infoSprite.position.y = 3; // Position above jammer
+    
+    // Add to indicator
+    indicator.add(infoSprite);
+    
+    // Update texture with jammer info
+    this.updateJammerInfoTexture(context, jammerConfig);
+    texture.needsUpdate = true;
+    
+    // Store reference
+    this.placementData.infoSprite = infoSprite;
+    this.placementData.infoTexture = texture;
+    this.placementData.infoContext = context;
+  }
+  
+  // Update the jammer info display
+  updateJammerInfoTexture(context, jammerConfig) {
+    if (!context) return;
+    
+    // Clear canvas
+    context.clearRect(0, 0, 256, 128);
+    
+    // Background
+    context.fillStyle = 'rgba(20, 29, 38, 0.8)';
+    context.fillRect(0, 0, 256, 128);
+    context.strokeStyle = '#00a3ff';
+    context.lineWidth = 2;
+    context.strokeRect(0, 0, 256, 128);
+    
+    // Header
+    context.fillStyle = '#ffffff';
+    context.font = 'bold 16px sans-serif';
+    context.textAlign = 'center';
+    context.fillText(jammerConfig.name, 128, 20);
+    
+    // Info
+    context.font = '12px sans-serif';
+    context.textAlign = 'left';
+    context.fillText(`Range: ${jammerConfig.range}m`, 15, 45);
+    context.fillText(`Frequency: ${jammerConfig.defaultFrequency}`, 15, 65);
+    context.fillText(`Antenna: ${CONFIG.antennas.types[jammerConfig.defaultAntenna].name}`, 15, 85);
+    context.fillText(`Power: ${jammerConfig.powerLevels.default}dBm`, 15, 105);
+    
+    // Validity status
+    if (this.placementData && this.placementData.isValid) {
+      context.fillStyle = '#4ade80'; // Green for valid
+      context.fillText('Valid placement', 180, 105);
+    } else {
+      context.fillStyle = '#f87171'; // Red for invalid
+      context.fillText('Invalid placement', 180, 105);
+    }
   }
   
   // Cancel asset placement
@@ -985,8 +1124,14 @@ class GameEngine {
   
   // Handle mouse down
   handleMouseDown(event) {
-    // Handle placement mode
+    // Handle jammer placement mode
     if (this.assetPlacementMode === 'JAMMER' && this.mouse.button === 0) {
+      // Check if placement is valid
+      if (this.placementData && !this.placementData.isValid) {
+        this.showAlert('Cannot place jammer at current location', 'warning');
+        return;
+      }
+      
       const position = { ...this.mouse.worldPosition };
       
       // Create jammer
@@ -996,6 +1141,9 @@ class GameEngine {
       );
       
       if (jammerId) {
+        // Add visual deployment effect
+        this.createJammerDeploymentEffect(position);
+        
         // Activate jammer
         gameState.activateJammer(jammerId);
         
@@ -1012,6 +1160,79 @@ class GameEngine {
     }
   }
   
+  // Create a visual effect when a jammer is deployed
+  createJammerDeploymentEffect(position) {
+    // Create particles
+    const particleCount = 30;
+    const particleGeometry = new THREE.BufferGeometry();
+    const particlePositions = new Float32Array(particleCount * 3);
+    
+    // Initialize particles in a circle around jammer
+    for (let i = 0; i < particleCount; i++) {
+      const angle = (i / particleCount) * Math.PI * 2;
+      const radius = 1 + Math.random() * 2;
+      
+      particlePositions[i * 3] = position.x + Math.cos(angle) * radius;
+      particlePositions[i * 3 + 1] = position.y + Math.sin(angle) * radius;
+      particlePositions[i * 3 + 2] = position.z + 0.1;
+    }
+    
+    particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+    
+    // Create material
+    const particleMaterial = new THREE.PointsMaterial({
+      color: 0x00ffff,
+      size: 0.5,
+      transparent: true,
+      opacity: 0.8,
+      blending: THREE.AdditiveBlending
+    });
+    
+    // Create particle system
+    const particles = new THREE.Points(particleGeometry, particleMaterial);
+    this.scene.add(particles);
+    
+    // Animate particles
+    const startTime = Date.now();
+    const duration = 1000; // 1 second
+    
+    const animateParticles = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // Update positions - expand outward
+      const positions = particleGeometry.attributes.position.array;
+      
+      for (let i = 0; i < particleCount; i++) {
+        const angle = (i / particleCount) * Math.PI * 2;
+        const radius = (1 + Math.random() * 2) * (1 + progress * 5);
+        
+        positions[i * 3] = position.x + Math.cos(angle) * radius;
+        positions[i * 3 + 1] = position.y + Math.sin(angle) * radius;
+        positions[i * 3 + 2] = position.z + 0.1 + progress * 3;
+      }
+      
+      particleGeometry.attributes.position.needsUpdate = true;
+      
+      // Fade out
+      particleMaterial.opacity = 0.8 * (1 - progress);
+      
+      if (progress < 1) {
+        requestAnimationFrame(animateParticles);
+      } else {
+        // Remove particles
+        this.scene.remove(particles);
+        
+        // Dispose resources
+        particleGeometry.dispose();
+        particleMaterial.dispose();
+      }
+    };
+    
+    // Start animation
+    requestAnimationFrame(animateParticles);
+  }
+  
   // Handle mouse up
   handleMouseUp(event) {
     // Nothing for now
@@ -1020,12 +1241,101 @@ class GameEngine {
   // Handle mouse move
   handleMouseMove(event) {
     // Update placement indicator position
-    if (this.assetPlacementMode && this.placementData && this.placementData.indicator) {
+    if (this.assetPlacementMode === 'JAMMER' && this.placementData && this.placementData.indicator) {
+      // Update indicator position
       this.placementData.indicator.position.set(
         this.mouse.worldPosition.x,
         this.mouse.worldPosition.y,
-        this.mouse.worldPosition.z + 0.5 // Slight offset
+        this.mouse.worldPosition.z + 0.1 // Slight offset for visibility
       );
+      
+      // Check placement validity
+      this.checkJammerPlacementValidity();
+      
+      // Update info display
+      if (this.placementData.infoContext && this.placementData.infoTexture) {
+        const jammerConfig = CONFIG.jammers.types[this.selectedAssetType];
+        if (jammerConfig) {
+          this.updateJammerInfoTexture(this.placementData.infoContext, jammerConfig);
+          this.placementData.infoTexture.needsUpdate = true;
+        }
+      }
+    }
+  }
+  
+  // Check if the current jammer placement is valid
+  checkJammerPlacementValidity() {
+    if (!this.placementData) return;
+    
+    // Get current position
+    const position = this.placementData.indicator.position.clone();
+    position.z -= 0.1; // Remove offset
+    
+    // Set default valid state
+    let isValid = true;
+    let invalidReason = '';
+    
+    // Check terrain boundaries
+    const terrainBounds = {
+      minX: -CONFIG.terrain.width / 2,
+      maxX: CONFIG.terrain.width / 2,
+      minY: -CONFIG.terrain.height / 2,
+      maxY: CONFIG.terrain.height / 2
+    };
+    
+    if (position.x < terrainBounds.minX || position.x > terrainBounds.maxX || 
+        position.y < terrainBounds.minY || position.y > terrainBounds.maxY) {
+      isValid = false;
+      invalidReason = 'Out of bounds';
+    }
+    
+    // Check proximity to other jammers (prevent stacking/overlap)
+    const minDistance = 5; // Minimum distance between jammers in meters
+    for (const jammerId of gameState.playerAssets.jammers.deployed) {
+      const jammerTransform = gameState.ecs.getComponent(jammerId, ComponentTypes.TRANSFORM);
+      if (jammerTransform) {
+        const jammerPos = jammerTransform.position;
+        const distance = Math.sqrt(
+          Math.pow(position.x - jammerPos.x, 2) + 
+          Math.pow(position.y - jammerPos.y, 2)
+        );
+        
+        if (distance < minDistance) {
+          isValid = false;
+          invalidReason = 'Too close to another jammer';
+          break;
+        }
+      }
+    }
+    
+    // Update visual feedback based on validity
+    if (isValid !== this.placementData.isValid) {
+      this.placementData.isValid = isValid;
+      
+      // Update model color
+      if (this.placementData.model) {
+        if (isValid) {
+          this.placementData.model.material.color.set('#00a3ff'); // Valid - blue
+        } else {
+          this.placementData.model.material.color.set('#ff3030'); // Invalid - red
+        }
+      }
+      
+      // Update range indicator color
+      if (this.placementData.rangeIndicator) {
+        if (isValid) {
+          this.placementData.rangeIndicator.material.color.set('#00a3ff'); // Valid - blue
+          this.placementData.rangeIndicator.material.opacity = 0.2;
+        } else {
+          this.placementData.rangeIndicator.material.color.set('#ff3030'); // Invalid - red
+          this.placementData.rangeIndicator.material.opacity = 0.3;
+        }
+      }
+      
+      // Show tooltip with reason if invalid
+      if (!isValid) {
+        this.showAlert(`Invalid placement: ${invalidReason}`, 'warning');
+      }
     }
   }
   
