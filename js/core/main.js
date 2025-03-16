@@ -2619,113 +2619,8 @@ class GameEngine {
       }
     }
     
-    // Enhanced 3D terrain camera controls
-    // Movement and rotation constants
-    const moveSpeed = 100;
-    const rotateSpeed = 0.05;
-    const MIN_CAMERA_HEIGHT = 1000; // Minimum safe height to prevent going underground
-    const TERRAIN_HEIGHT = -1000; // Position of terrain in Y coordinate
-    const SAFE_DISTANCE = MIN_CAMERA_HEIGHT - TERRAIN_HEIGHT; // Safety margin
-    
-    // Check if this is a movement or rotation key, and disable intro animation
-    const movementKeys = ['w', 'a', 's', 'd', 'q', 'e', 'z', 'x', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
-    if (movementKeys.includes(key)) {
-      // Once user starts moving, stop intro animation permanently
-      if (this.introAnimationActive) {
-        this.introAnimationActive = false;
-        console.log("User has taken control, stopping intro animation");
-      }
-      this.userHasInteracted = true;
-    }
-    
-    // WASD movement (translation)
-    if (key === 'w') {
-      // Move forward
-      this.camera.position.y += moveSpeed;
-      if (this.cameraState) this.cameraState.target.y += moveSpeed;
-    } else if (key === 's') {
-      // Move backward (with minimum height check to prevent going underground)
-      // Only move down if we're above the minimum height from terrain
-      if (this.camera.position.y > TERRAIN_HEIGHT + SAFE_DISTANCE) {
-        this.camera.position.y -= moveSpeed;
-        if (this.cameraState) this.cameraState.target.y -= moveSpeed;
-      }
-    } else if (key === 'a') {
-      // Move left
-      this.camera.position.x -= moveSpeed;
-      if (this.cameraState) this.cameraState.target.x -= moveSpeed;
-    } else if (key === 'd') {
-      // Move right
-      this.camera.position.x += moveSpeed;
-      if (this.cameraState) this.cameraState.target.x += moveSpeed;
-    }
-    
-    // Forward/Backward movement with Z/X keys
-    else if (key === 'z') {
-      // Move forward in camera direction
-      const direction = new THREE.Vector3();
-      this.camera.getWorldDirection(direction);
-      
-      // Scale the direction vector and move both camera and target
-      direction.multiplyScalar(moveSpeed);
-      this.camera.position.add(direction);
-      if (this.cameraState) this.cameraState.target.add(direction);
-    } else if (key === 'x') {
-      // Move backward in camera direction
-      const direction = new THREE.Vector3();
-      this.camera.getWorldDirection(direction);
-      
-      // Scale the direction vector and move both camera and target
-      direction.multiplyScalar(-moveSpeed);
-      this.camera.position.add(direction);
-      if (this.cameraState) this.cameraState.target.add(direction);
-    }
-    
-    // Camera elevation controls
-    else if (key === 'q') {
-      // Move up
-      this.camera.position.z += moveSpeed;
-      this.camera.lookAt(this.cameraState ? this.cameraState.target : new THREE.Vector3(0, 0, 0));
-    } else if (key === 'e') {
-      // Move down (with limit to prevent going below terrain)
-      if (this.camera.position.z > 300) {
-        this.camera.position.z -= moveSpeed;
-        this.camera.lookAt(this.cameraState ? this.cameraState.target : new THREE.Vector3(0, 0, 0));
-      }
-    }
-    
-    // Arrow keys for rotation
-    else if (key === 'ArrowLeft') {
-      // Rotate camera left (increase yaw)
-      if (this.cameraState) {
-        this.cameraState.yawAngle += rotateSpeed;
-        this.updateCameraPosition();
-      }
-    } else if (key === 'ArrowRight') {
-      // Rotate camera right (decrease yaw)
-      if (this.cameraState) {
-        this.cameraState.yawAngle -= rotateSpeed;
-        this.updateCameraPosition();
-      }
-    } else if (key === 'ArrowUp') {
-      // Rotate camera up (increase pitch, with limit)
-      if (this.cameraState) {
-        this.cameraState.pitchAngle = Math.min(
-          this.cameraState.maxPitchAngle,
-          this.cameraState.pitchAngle + rotateSpeed
-        );
-        this.updateCameraPosition();
-      }
-    } else if (key === 'ArrowDown') {
-      // Rotate camera down (decrease pitch, with limit)
-      if (this.cameraState) {
-        this.cameraState.pitchAngle = Math.max(
-          this.cameraState.minPitchAngle,
-          this.cameraState.pitchAngle - rotateSpeed
-        );
-        this.updateCameraPosition();
-      }
-    }
+    // Note: Camera movement and rotation keys (WASD, arrows, Z/X, Q/E) are now handled 
+    // in the processKeysInput method for continuous processing and multi-key support
     
     // Terrain visualization modes
     else if (key === 'b') {
@@ -2769,7 +2664,7 @@ class GameEngine {
     
     // Add "Help" message for camera controls
     else if (key === 'h') {
-      this.showAlert('Camera Controls: WASD=position, Z/X=forward/back, QE=height, Arrows=rotate, R=reset, F=wireframe, B=biome view, M=start mission', 'info');
+      this.showAlert('Camera Controls: WASD=position, Z/X=forward/back, QE=height, Arrows=rotate (multiple keys work simultaneously), R=reset, B=biome view, M=start mission', 'info');
     }
     
     // Start mission with 'M' key
@@ -3165,6 +3060,187 @@ class GameEngine {
     }
   }
   
+  // Process multiple keypresses for simultaneous movement & rotation
+  processKeysInput(deltaTime) {
+    // Skip if camera state isn't initialized
+    if (!this.cameraState) return;
+    
+    // Movement constants
+    const moveSpeed = 100 * deltaTime; // Scale with delta time
+    const rotateSpeed = 0.05 * deltaTime * 60; // Scale with delta time
+    const MIN_CAMERA_HEIGHT = 1000;
+    const TERRAIN_HEIGHT = -1000;
+    const SAFE_DISTANCE = MIN_CAMERA_HEIGHT - TERRAIN_HEIGHT;
+    
+    // Check for camera movement keys (WASD)
+    if (this.keys['w']) {
+      // Move forward
+      this.camera.position.y += moveSpeed;
+      this.cameraState.target.y += moveSpeed;
+      
+      // Stop intro animation when moving
+      if (this.introAnimationActive) {
+        this.introAnimationActive = false;
+        this.userHasInteracted = true;
+      }
+    }
+    
+    if (this.keys['s']) {
+      // Move backward with height check
+      if (this.camera.position.y > TERRAIN_HEIGHT + SAFE_DISTANCE) {
+        this.camera.position.y -= moveSpeed;
+        this.cameraState.target.y -= moveSpeed;
+      }
+      
+      // Stop intro animation when moving
+      if (this.introAnimationActive) {
+        this.introAnimationActive = false;
+        this.userHasInteracted = true;
+      }
+    }
+    
+    if (this.keys['a']) {
+      // Move left
+      this.camera.position.x -= moveSpeed;
+      this.cameraState.target.x -= moveSpeed;
+      
+      // Stop intro animation when moving
+      if (this.introAnimationActive) {
+        this.introAnimationActive = false;
+        this.userHasInteracted = true;
+      }
+    }
+    
+    if (this.keys['d']) {
+      // Move right
+      this.camera.position.x += moveSpeed;
+      this.cameraState.target.x += moveSpeed;
+      
+      // Stop intro animation when moving
+      if (this.introAnimationActive) {
+        this.introAnimationActive = false;
+        this.userHasInteracted = true;
+      }
+    }
+    
+    // Forward/backward in camera direction with Z/X
+    if (this.keys['z']) {
+      // Move forward in camera direction
+      const direction = new THREE.Vector3();
+      this.camera.getWorldDirection(direction);
+      
+      // Scale the direction vector and move both camera and target
+      direction.multiplyScalar(moveSpeed);
+      this.camera.position.add(direction);
+      this.cameraState.target.add(direction);
+      
+      // Stop intro animation when moving
+      if (this.introAnimationActive) {
+        this.introAnimationActive = false;
+        this.userHasInteracted = true;
+      }
+    }
+    
+    if (this.keys['x']) {
+      // Move backward in camera direction
+      const direction = new THREE.Vector3();
+      this.camera.getWorldDirection(direction);
+      
+      // Scale the direction vector and move both camera and target
+      direction.multiplyScalar(-moveSpeed);
+      this.camera.position.add(direction);
+      this.cameraState.target.add(direction);
+      
+      // Stop intro animation when moving
+      if (this.introAnimationActive) {
+        this.introAnimationActive = false;
+        this.userHasInteracted = true;
+      }
+    }
+    
+    // Camera elevation with Q/E
+    if (this.keys['q']) {
+      // Move up
+      this.camera.position.z += moveSpeed;
+      this.camera.lookAt(this.cameraState.target);
+      
+      // Stop intro animation when moving
+      if (this.introAnimationActive) {
+        this.introAnimationActive = false;
+        this.userHasInteracted = true;
+      }
+    }
+    
+    if (this.keys['e']) {
+      // Move down (with limit)
+      if (this.camera.position.z > 300) {
+        this.camera.position.z -= moveSpeed;
+        this.camera.lookAt(this.cameraState.target);
+      }
+      
+      // Stop intro animation when moving
+      if (this.introAnimationActive) {
+        this.introAnimationActive = false;
+        this.userHasInteracted = true;
+      }
+    }
+    
+    // Rotation with arrow keys (now works simultaneously with movement)
+    if (this.keys['ArrowLeft']) {
+      // Rotate left (increase yaw)
+      this.cameraState.yawAngle += rotateSpeed;
+      this.updateCameraPosition();
+      
+      // Stop intro animation when moving
+      if (this.introAnimationActive) {
+        this.introAnimationActive = false;
+        this.userHasInteracted = true;
+      }
+    }
+    
+    if (this.keys['ArrowRight']) {
+      // Rotate right (decrease yaw)
+      this.cameraState.yawAngle -= rotateSpeed;
+      this.updateCameraPosition();
+      
+      // Stop intro animation when moving
+      if (this.introAnimationActive) {
+        this.introAnimationActive = false;
+        this.userHasInteracted = true;
+      }
+    }
+    
+    if (this.keys['ArrowUp']) {
+      // Rotate up (increase pitch, with limit)
+      this.cameraState.pitchAngle = Math.min(
+        this.cameraState.maxPitchAngle,
+        this.cameraState.pitchAngle + rotateSpeed
+      );
+      this.updateCameraPosition();
+      
+      // Stop intro animation when moving
+      if (this.introAnimationActive) {
+        this.introAnimationActive = false;
+        this.userHasInteracted = true;
+      }
+    }
+    
+    if (this.keys['ArrowDown']) {
+      // Rotate down (decrease pitch, with limit)
+      this.cameraState.pitchAngle = Math.max(
+        this.cameraState.minPitchAngle,
+        this.cameraState.pitchAngle - rotateSpeed
+      );
+      this.updateCameraPosition();
+      
+      // Stop intro animation when moving
+      if (this.introAnimationActive) {
+        this.introAnimationActive = false;
+        this.userHasInteracted = true;
+      }
+    }
+  }
+  
   // Main game loop
   
   gameLoop(now) {
@@ -3175,6 +3251,9 @@ class GameEngine {
     // Calculate delta time in seconds
     const deltaTime = (now - this.lastTime) / 1000;
     this.lastTime = now;
+    
+    // Process multi-key input
+    this.processKeysInput(deltaTime);
     
     // Get elapsed time from clock (for vaporwave terrain animation)
     const elapsedTime = this.clock.getElapsedTime();
