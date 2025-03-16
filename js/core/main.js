@@ -36,6 +36,9 @@ class GameEngine {
     this.assetPlacementMode = null;
     this.selectedAssetType = null;
     this.placementData = null;
+    
+    // Visualization objects for animation/updates
+    this.visualizationObjects = new Map();
   }
   
   // Initialize the game engine
@@ -2499,6 +2502,13 @@ class GameEngine {
     
     // Update ECS
     this.ecs.update(deltaTime);
+    
+    // Update visualizations (water animations, etc.)
+    this.visualizationObjects.forEach((object, key) => {
+      if (object.userData && object.userData.update) {
+        object.userData.update(deltaTime, object);
+      }
+    });
     
     // Render scene
     const renderSystem = this.ecs.getSystem('render');
