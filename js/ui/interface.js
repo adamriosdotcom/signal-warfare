@@ -190,8 +190,9 @@ const tacticalMapCache = {
 };
 
 // Global variables for map view center and scale
-let mapViewCenter = { x: 0, y: 0 }; // Center position of tactical map view (in world coordinates)
+let mapViewCenter = { x: 0, y: 0, z: 0 }; // Center position of tactical map view (x, y, z in world coordinates)
 let mapViewScale = 1.0; // Scale factor for the tactical map view (1.0 = whole map)
+let mapViewElevation = false; // Toggle to show elevation contours instead of top-down view
 
 // Update tactical map
 function updateTacticalMap(gameState = {}, assets = []) {
@@ -221,9 +222,10 @@ function updateTacticalMap(gameState = {}, assets = []) {
   
   // Update map view center based on camera position from global game engine
   if (window.gameEngine && window.gameEngine.camera) {
-    // Update map center from camera position
+    // Update map center from camera position - include all three axes
     mapViewCenter.x = window.gameEngine.camera.position.x;
     mapViewCenter.y = window.gameEngine.camera.position.y;
+    mapViewCenter.z = window.gameEngine.camera.position.z;
   }
   
   // Save context for transformations
@@ -307,29 +309,40 @@ function drawTerrainLayer(ctx, width, height) {
       
       // Use noise function based on world coordinates for consistent terrain
       const noiseFreq = 0.001; // Frequency factor for noise
-      const elevation = simplexNoise(worldX * noiseFreq, worldY * noiseFreq);
       
-      // Assign terrain type based on elevation
+      // Calculate elevation using 3D noise (using x,y,z coords)
+      // In elevation mode, we show actual terrain heights
+      // We need a consistent elevation value for a given x,y position
+      
+      // Base terrain elevation using simplex noise
+      const terrainFactor = 200; // Scale terrain to realistic heights in meters
+      const terrainNoise = simplexNoise(worldX * noiseFreq, worldY * noiseFreq);
+      
+      // Calculate actual terrain height value - scale to realistic heights (-50m to 350m)
+      // Higher elevations in the mountains, lower in valleys
+      const terrainElevation = (terrainNoise + 0.5) * terrainFactor; 
+      
+      // Assign terrain type and color based on elevation
       let color;
       let alpha = 0.7;
       
-      if (elevation < -0.4) {
+      if (terrainNoise < -0.4) {
         // Water
         color = '#103155'; // Deep blue
         alpha = 0.8;
-      } else if (elevation < -0.2) {
+      } else if (terrainNoise < -0.2) {
         // Shallow water
         color = '#144b7f'; // Medium blue
         alpha = 0.75;
-      } else if (elevation < 0.1) {
+      } else if (terrainNoise < 0.1) {
         // Lowland / plains
         color = '#103322'; // Dark green
         alpha = 0.6;
-      } else if (elevation < 0.3) {
+      } else if (terrainNoise < 0.3) {
         // Hills
         color = '#164422'; // Medium green
         alpha = 0.65;
-      } else if (elevation < 0.5) {
+      } else if (terrainNoise < 0.5) {
         // Mountains
         color = '#2d3b2e'; // Gray-green
         alpha = 0.7;
@@ -337,6 +350,44 @@ function drawTerrainLayer(ctx, width, height) {
         // High mountains
         color = '#444940'; // Gray
         alpha = 0.75;
+      }
+      
+      // In elevation mode, modify color based on height compared to camera position
+      if (mapViewElevation) {
+        // Compare terrain elevation with camera height
+        const cameraElevation = mapViewCenter.y; // Camera y position
+        const elevationDiff = terrainElevation - cameraElevation;
+        
+        // Use elevation-based coloring
+        if (elevationDiff > 100) {
+          // Far above camera - light
+          color = '#AAA';
+          alpha = 0.7;
+        } else if (elevationDiff > 50) {
+          // Above camera
+          color = '#888';
+          alpha = 0.7;
+        } else if (elevationDiff > 10) {
+          // Slightly above camera
+          color = '#666';
+          alpha = 0.65;
+        } else if (elevationDiff < -100) {
+          // Far below camera - very dark
+          color = '#111';
+          alpha = 0.8;
+        } else if (elevationDiff < -50) {
+          // Below camera
+          color = '#222';
+          alpha = 0.75;
+        } else if (elevationDiff < -10) {
+          // Slightly below camera
+          color = '#333';
+          alpha = 0.7;
+        } else {
+          // At camera level
+          color = '#444';
+          alpha = 0.65;
+        }
       }
       
       // Draw the terrain cell
@@ -347,6 +398,31 @@ function drawTerrainLayer(ctx, width, height) {
         cellSizeX + 1, // +1 to avoid gaps between cells
         cellSizeY + 1
       );
+      
+      // In elevation mode with high zoom, draw elevation contour lines
+      if (mapViewElevation && mapViewScale > 2.0) {
+        // Draw contour lines every 25m of elevation
+        if (Math.round(terrainElevation) % 25 === 0) {
+          // Thicker lines for 100m increments
+          ctx.strokeStyle = Math.round(terrainElevation) % 100 === 0 ? 
+                           'rgba(255, 255, 255, 0.4)' : 'rgba(255, 255, 255, 0.2)';
+          ctx.lineWidth = Math.round(terrainElevation) % 100 === 0 ? 0.8 : 0.5;
+          
+          ctx.beginPath();
+          ctx.moveTo(worldX, worldY);
+          ctx.lineTo(worldX + cellSizeX, worldY);
+          ctx.lineTo(worldX + cellSizeX, worldY + cellSizeY);
+          ctx.stroke();
+          
+          // Only show elevation number on 100m increments with high zoom
+          if (Math.round(terrainElevation) % 100 === 0 && mapViewScale > 3.0) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.font = '8px var(--font-mono, monospace)';
+            ctx.textAlign = 'left';
+            ctx.fillText(`${Math.round(terrainElevation)}m`, worldX + 3, worldY + 10);
+          }
+        }
+      }
     }
   }
   
@@ -688,7 +764,33 @@ function initMapControls() {
         y <= height / 2 + buttonSize / 2) {
       // Reset zoom and center
       mapViewScale = 1.0;
-      mapViewCenter = { x: 0, y: 0 };
+      mapViewCenter = { x: 0, y: 0, z: 0 };
+      updateTacticalMap(window.gameState, window.assets || []);
+      return;
+    }
+    
+    // Check if elevation mode toggle was clicked
+    const elevModeX = width - 75;
+    const elevModeY = 20;
+    const buttonWidth = 65;
+    const buttonHeight = 18;
+    
+    if (x >= elevModeX && 
+        x <= elevModeX + buttonWidth &&
+        y >= elevModeY && 
+        y <= elevModeY + buttonHeight) {
+      // Toggle elevation mode
+      mapViewElevation = !mapViewElevation;
+      
+      // Show feedback when mode changes
+      window.showAlert(
+        mapViewElevation ? 
+        "Elevation mode enabled - showing height contours" : 
+        "Standard top-down view enabled", 
+        "info"
+      );
+      
+      // Update the map display
       updateTacticalMap(window.gameState, window.assets || []);
       return;
     }
@@ -855,9 +957,13 @@ function drawCameraViewIndicator(ctx, width, height) {
   
   // Get camera properties
   const camera = window.gameEngine.camera;
-  const cameraPos = { x: camera.position.x, y: camera.position.z };
+  const cameraPos = { 
+    x: camera.position.x, 
+    y: camera.position.z, // Using z for the ground plane coordinate
+    elevation: camera.position.y // Store actual y (elevation) separately
+  };
   
-  // Draw camera position
+  // Draw camera position with elevation indicator
   ctx.fillStyle = 'rgba(0, 132, 255, 0.8)';
   ctx.beginPath();
   ctx.arc(cameraPos.x, cameraPos.y, 15, 0, Math.PI * 2);
@@ -866,6 +972,7 @@ function drawCameraViewIndicator(ctx, width, height) {
   // Draw view direction indication
   if (window.gameEngine.cameraState) {
     const yawAngle = window.gameEngine.cameraState.yawAngle || 0;
+    const pitchAngle = window.gameEngine.cameraState.pitchAngle || 0;
     
     // Draw direction indicator
     ctx.strokeStyle = 'rgba(0, 132, 255, 0.6)';
@@ -893,6 +1000,30 @@ function drawCameraViewIndicator(ctx, width, height) {
     );
     ctx.closePath();
     ctx.fill();
+    
+    // Indicate elevation with height indicator
+    // Draw elevation indicator line
+    ctx.strokeStyle = 'rgba(0, 132, 255, 0.4)';
+    ctx.setLineDash([2, 2]); // Dashed line for elevation
+    ctx.beginPath();
+    ctx.moveTo(cameraPos.x - 20, cameraPos.y);
+    ctx.lineTo(cameraPos.x - 40, cameraPos.y);
+    ctx.stroke();
+    ctx.setLineDash([]); // Reset line style
+    
+    // Draw elevation text
+    ctx.font = '10px var(--font-mono, monospace)';
+    ctx.fillStyle = 'rgba(0, 132, 255, 0.8)';
+    ctx.textAlign = 'right';
+    ctx.fillText(`Alt: ${Math.round(cameraPos.elevation)}m`, cameraPos.x - 45, cameraPos.y + 4);
+    
+    // Show pitch angle indicator
+    if (pitchAngle !== 0) {
+      // Draw pitch indicator (looking up or down)
+      const pitchDir = pitchAngle > 0 ? '↑' : '↓';
+      const pitchDeg = Math.abs(Math.round(pitchAngle * 180 / Math.PI));
+      ctx.fillText(`${pitchDir}${pitchDeg}°`, cameraPos.x - 45, cameraPos.y - 10);
+    }
   }
 }
 
@@ -945,10 +1076,14 @@ function drawCoordinatesAndScale(ctx, width, height, center) {
   ctx.fillStyle = 'rgba(54, 249, 179, 0.7)';
   ctx.font = '9px var(--font-mono, monospace)';
   
-  // Current camera position coordinates
+  // Current camera position coordinates (all three axes)
+  const coordsX = 10;
+  const coordsStartY = height - 38; // Start higher to accommodate three lines
+  
   ctx.textAlign = 'left';
-  ctx.fillText(`X: ${Math.round(center.x)}`, 10, height - 25);
-  ctx.fillText(`Y: ${Math.round(center.y)}`, 10, height - 12);
+  ctx.fillText(`X: ${Math.round(center.x)}`, coordsX, coordsStartY);
+  ctx.fillText(`Y: ${Math.round(center.y)}`, coordsX, coordsStartY + 13);
+  ctx.fillText(`Z: ${Math.round(center.z)}`, coordsX, coordsStartY + 26);
   
   // Draw cardinal directions
   ctx.textAlign = 'center';
@@ -968,6 +1103,24 @@ function drawCoordinatesAndScale(ctx, width, height, center) {
   
   ctx.textAlign = 'right';
   ctx.fillText(scaleText, width - 10, height - 20);
+  
+  // Draw elevation mode toggle button
+  const elevModeX = width - 75;
+  const elevModeY = 20;
+  const buttonWidth = 65;
+  const buttonHeight = 18;
+  
+  // Button background
+  ctx.fillStyle = mapViewElevation ? 'rgba(54, 249, 179, 0.3)' : 'rgba(30, 41, 59, 0.7)';
+  ctx.fillRect(elevModeX, elevModeY, buttonWidth, buttonHeight);
+  ctx.strokeStyle = 'rgba(54, 249, 179, 0.7)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(elevModeX, elevModeY, buttonWidth, buttonHeight);
+  
+  // Button text
+  ctx.fillStyle = 'rgba(54, 249, 179, 0.7)';
+  ctx.textAlign = 'center';
+  ctx.fillText('ELEVATION', elevModeX + buttonWidth/2, elevModeY + buttonHeight/2 + 3);
 }
 
 // Simplified Perlin noise approximation for terrain
