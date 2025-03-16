@@ -182,8 +182,42 @@ function updateSpectrumAnalyzer(signals = []) {
   initFrequencyBandSelectors();
 }
 
+// Cache for grid patterns
+const gridCache = {
+  lastWidth: 0,
+  lastHeight: 0,
+  cachedGrid: null
+};
+
 // Draw spectrum grid
 function drawSpectrumGrid(ctx, width, height) {
+  // Check if we can use cached grid (if dimensions unchanged)
+  if (gridCache.cachedGrid && 
+      gridCache.lastWidth === width && 
+      gridCache.lastHeight === height) {
+    
+    // Just draw the cached grid with the active band info
+    ctx.putImageData(gridCache.cachedGrid, 0, 0);
+    
+    // Draw only dynamic elements (scanline and band identifier)
+    updateDynamicGridElements(ctx, width, height);
+    return;
+  }
+  
+  // If cache miss or first run, render the full grid
+  renderFullGrid(ctx, width, height);
+  
+  // Cache the grid (but without scanline which is dynamic)
+  gridCache.lastWidth = width;
+  gridCache.lastHeight = height;
+  gridCache.cachedGrid = ctx.getImageData(0, 0, width, height);
+  
+  // Add dynamic elements on top
+  updateDynamicGridElements(ctx, width, height);
+}
+
+// Render the full grid (expensive operation - only do when needed)
+function renderFullGrid(ctx, width, height) {
   // Background with subtle gradient
   const bgGradient = ctx.createLinearGradient(0, 0, 0, height);
   bgGradient.addColorStop(0, '#0c1116');
@@ -196,12 +230,12 @@ function drawSpectrumGrid(ctx, width, height) {
   const frequency = selectedBand ? selectedBand.dataset.freq : '433';
   const { min, max } = getFrequencyRange(frequency);
   
-  // Primary grid
+  // Primary grid - fewer lines for better performance
   ctx.strokeStyle = 'rgba(54, 249, 179, 0.1)';
   ctx.lineWidth = 1;
   
-  // Draw horizontal amplitude lines
-  const amplitudeLevels = ['-100', '-90', '-80', '-70', '-60', '-50', '-40', '-30'];
+  // Draw horizontal amplitude lines - reduced to 4 lines
+  const amplitudeLevels = ['-100', '-80', '-60', '-40'];
   const usableHeight = height - 20; // Adjust for bottom margin
   
   amplitudeLevels.forEach((level, index) => {
@@ -215,16 +249,14 @@ function drawSpectrumGrid(ctx, width, height) {
     ctx.stroke();
     
     // Draw label
-    if (index % 2 === 0) { // Draw every other label to avoid cluttering
-      ctx.fillStyle = 'rgba(54, 249, 179, 0.5)';
-      ctx.font = '8px var(--font-mono, monospace)';
-      ctx.textAlign = 'left';
-      ctx.fillText(`${level}`, 5, y - 2);
-    }
+    ctx.fillStyle = 'rgba(54, 249, 179, 0.5)';
+    ctx.font = '8px var(--font-mono, monospace)';
+    ctx.textAlign = 'left';
+    ctx.fillText(`${level}`, 5, y - 2);
   });
   
-  // Draw frequency division lines
-  const divisionCount = 8;
+  // Draw frequency division lines - reduced count
+  const divisionCount = 4; // Half as many divisions
   const frequencyRange = max - min;
   
   for (let i = 0; i <= divisionCount; i++) {
@@ -238,34 +270,32 @@ function drawSpectrumGrid(ctx, width, height) {
     ctx.stroke();
     
     // Draw frequency label
-    if (i % 2 === 0 || i === divisionCount) { // Draw selected labels
-      ctx.fillStyle = 'rgba(54, 249, 179, 0.5)';
-      ctx.font = '8px var(--font-mono, monospace)';
-      ctx.textAlign = 'center';
-      
-      // Format frequency display based on range
-      let displayFreq;
-      if (frequencyValue >= 1000) {
-        displayFreq = (frequencyValue / 1000).toFixed(1) + 'GHz';
-      } else {
-        displayFreq = frequencyValue.toFixed(0) + 'MHz';
-      }
-      
-      ctx.fillText(displayFreq, x, height - 4);
+    ctx.fillStyle = 'rgba(54, 249, 179, 0.5)';
+    ctx.font = '8px var(--font-mono, monospace)';
+    ctx.textAlign = 'center';
+    
+    // Format frequency display based on range
+    let displayFreq;
+    if (frequencyValue >= 1000) {
+      displayFreq = (frequencyValue / 1000).toFixed(1) + 'GHz';
+    } else {
+      displayFreq = frequencyValue.toFixed(0) + 'MHz';
     }
+    
+    ctx.fillText(displayFreq, x, height - 4);
   }
   
-  // Draw waterfall effect at the bottom
+  // Draw simplified waterfall effect at the bottom
   const waterfallHeight = 10;
-  const waterfallGradient = ctx.createLinearGradient(0, height - waterfallHeight, width, height - waterfallHeight);
-  waterfallGradient.addColorStop(0, 'rgba(20, 29, 38, 0.8)');
-  waterfallGradient.addColorStop(0.25, 'rgba(54, 249, 179, 0.1)');
-  waterfallGradient.addColorStop(0.5, 'rgba(54, 249, 179, 0.2)');
-  waterfallGradient.addColorStop(0.75, 'rgba(54, 249, 179, 0.1)');
-  waterfallGradient.addColorStop(1, 'rgba(20, 29, 38, 0.8)');
-  
-  ctx.fillStyle = waterfallGradient;
+  ctx.fillStyle = 'rgba(54, 249, 179, 0.1)';
   ctx.fillRect(0, height - waterfallHeight, width, waterfallHeight);
+}
+
+// Update just the dynamic elements of the grid
+function updateDynamicGridElements(ctx, width, height) {
+  // Get current band info for display
+  const selectedBand = document.querySelector('.band.active');
+  const frequency = selectedBand ? selectedBand.dataset.freq : '433';
   
   // Add scanline effect
   ctx.fillStyle = 'rgba(54, 249, 179, 0.05)';
@@ -386,10 +416,17 @@ function drawSignals(ctx, signals, width, height) {
       ctx.restore();
     }
     
-    // Draw peak frequency marker
+    // Calculate actual frequency based on position and band range
     const signalFreq = min + (signal.position * frequencyRange);
-    let freqDisplay;
     
+    // Calculate dynamic dBm value based on strength
+    // Convert normalized strength (0-1) to dBm range (-100 to -30)
+    const dBm = Math.floor(-100 + signal.strength * 70);
+    // Store updated dBm value on the signal
+    signal.dbm = String(dBm);
+    
+    // Format frequency for display
+    let freqDisplay;
     if (signalFreq >= 1000) {
       freqDisplay = (signalFreq / 1000).toFixed(3) + ' GHz';
     } else {
@@ -406,17 +443,16 @@ function drawSignals(ctx, signals, width, height) {
       const peakX = signal.position * width;
       const peakY = (height - 15) - (signal.strength * (height - 15)) - 18;
       
-      // Draw text with subtle "LCD" effect
+      // Draw text with subtle "LCD" effect - minimal info to reduce clutter
       ctx.fillText(`${signal.name}`, peakX, peakY);
       ctx.font = '8px var(--font-mono, monospace)';
-      ctx.fillText(`${signal.dbm} dBm`, peakX, peakY + 10);
-      ctx.fillText(`${freqDisplay}`, peakX, peakY + 20);
+      ctx.fillText(`${dBm} dBm`, peakX, peakY + 10);
       
-      // Add tactical indicator for hostile signals
+      // Add tactical indicator for hostile signals (keep minimal)
       if (signal.isHostile) {
         ctx.fillStyle = 'rgba(255, 70, 85, 0.7)';
         ctx.font = 'bold 8px var(--font-mono, monospace)';
-        ctx.fillText('⚠ HOSTILE', peakX, peakY - 10);
+        ctx.fillText('⚠', peakX, peakY - 10); // Just show icon, not full text
       }
     }
   });
@@ -430,12 +466,15 @@ function drawBackgroundNoise(ctx, width, height) {
   // Create noise points
   ctx.fillStyle = 'rgba(54, 249, 179, 0.05)';
   
-  for (let x = 0; x < width; x += 2) {
+  // Draw fewer noise points for better performance
+  // Skip every 4 pixels instead of every 2
+  for (let x = 0; x < width; x += 4) {
     // Random noise amplitude
     const amplitude = Math.random() * noiseHeight;
     const y = usableHeight - amplitude;
     
-    ctx.fillRect(x, y, 1, amplitude);
+    // Draw wider points to maintain visual density
+    ctx.fillRect(x, y, 3, amplitude);
   }
 }
 
@@ -789,7 +828,14 @@ function animateSpectrum() {
     lastUpdate: Date.now()
   };
   
+  // Performance tracking
+  let lastFrameTime = 0;
+  let frameTimes = [];
+  let slowFrameCount = 0;
+  
   function updateAnimation() {
+    const frameStartTime = performance.now();
+    
     // Only animate if spectrum panel is visible and not minimized
     const spectrumPanel = document.getElementById('spectrum-panel');
     const isVisible = spectrumPanel && !spectrumPanel.classList.contains('minimized');
@@ -799,58 +845,65 @@ function animateSpectrum() {
     const now = Date.now();
     const elapsedTime = (now - startTime) / 1000;
     
-    // Check if band has changed
-    const currentBand = document.querySelector('.band.active')?.dataset.freq || '433';
-    if (currentBand !== activeBand) {
-      activeBand = currentBand;
-      currentSignals = createDemoSignals(); // Regenerate signals for new band
-      console.log("Band changed to:", activeBand);
-    }
-    
-    // Every 10th frame (about 1 second) regenerate some signals to simulate changes
-    if (frameCount % 10 === 0) {
-      // Regenerate signals only if mission is active to show dynamic battlefield
-      if (window.gameState && window.gameState.missionActive) {
+    // Skip processing entirely if panel is not visible
+    if (isVisible) {
+      // Check if band has changed - only do this check when visible
+      const currentBand = document.querySelector('.band.active')?.dataset.freq || '433';
+      if (currentBand !== activeBand) {
+        activeBand = currentBand;
+        currentSignals = createDemoSignals(); // Regenerate signals for new band
+      }
+      
+      // Reduce regeneration frequency for better performance
+      // Now only regenerate every 30 frames (3 seconds) when mission is active
+      if (frameCount % 30 === 0 && window.gameState && window.gameState.missionActive) {
         currentSignals = createDemoSignals();
       }
-    }
-    
-    if (isVisible) {
-      // Create modified signals based on original ones but with slight variations
+      
+      // Create modified signals based on original ones with minimal copies
       const animatedSignals = currentSignals.map(signal => {
-        const randomSeed = signal.position * 100; // Make each signal unique but consistent
-        let modifiedSignal = { ...signal };
+        // Create shallow copy only with the properties we'll modify
+        const modifiedSignal = { 
+          name: signal.name,
+          position: signal.position,
+          strength: signal.strength,
+          width: signal.width,
+          dbm: signal.dbm,
+          isHostile: signal.isHostile
+        };
         
-        // Different animation patterns based on signal type
+        // Use simplified math operations
+        const randomSeed = signal.position * 100;
+        
+        // Different animation patterns based on signal type (simplified math)
         if (signal.name === 'NOISE') {
-          // Noise is very random
-          modifiedSignal.strength = signal.strength * (0.7 + 0.6 * Math.random());
-          modifiedSignal.position = signal.position + 0.03 * (Math.random() - 0.5);
-          modifiedSignal.width = signal.width * (0.8 + 0.4 * Math.random());
+          // Noise is very random but less calculation intensive
+          modifiedSignal.strength = signal.strength * (0.7 + 0.3 * Math.random());
+          modifiedSignal.position = signal.position + 0.02 * (Math.random() - 0.5);
+          modifiedSignal.width = signal.width * (0.9 + 0.2 * Math.random());
         } else if (signal.name === 'JAM') {
-          // Jamming signals have aggressive pulsing
-          const pulseRate = 2.5;
-          const pulseDepth = 0.3;
-          modifiedSignal.strength = signal.strength * (1 - pulseDepth + pulseDepth * Math.abs(Math.sin(elapsedTime * pulseRate + randomSeed)));
-          modifiedSignal.position = signal.position + 0.01 * Math.sin(elapsedTime * 0.7 + randomSeed);
-          modifiedSignal.width = signal.width * (0.9 + 0.2 * Math.sin(elapsedTime * 1.2 + randomSeed));
+          // Jamming signals - simplified
+          const pulsePhase = (elapsedTime * 2 + randomSeed) % 6.28;
+          modifiedSignal.strength = signal.strength * (0.8 + 0.2 * Math.abs(Math.sin(pulsePhase)));
+          modifiedSignal.position = signal.position + 0.01 * Math.sin(elapsedTime * 0.5);
+          modifiedSignal.width = signal.width;
         } else if (signal.isHostile) {
-          // Hostile signals have characteristic fluctuations
-          modifiedSignal.strength = signal.strength * (0.85 + 0.3 * Math.pow(Math.sin(elapsedTime * 1.2 + randomSeed), 2));
-          modifiedSignal.position = signal.position + 0.015 * Math.sin(elapsedTime * 0.8 + randomSeed);
-          modifiedSignal.width = signal.width * (0.9 + 0.2 * Math.sin(elapsedTime * 1.5 + randomSeed));
+          // Hostile signals - simplified
+          modifiedSignal.strength = signal.strength * (0.9 + 0.1 * Math.sin(elapsedTime + randomSeed));
+          modifiedSignal.position = signal.position + 0.01 * Math.sin(elapsedTime * 0.5);
+          modifiedSignal.width = signal.width;
         } else {
-          // Civilian signals have smoother, more stable patterns
-          modifiedSignal.strength = signal.strength * (0.95 + 0.1 * Math.sin(elapsedTime * 0.5 + randomSeed));
-          modifiedSignal.position = signal.position + 0.005 * Math.sin(elapsedTime * 0.3 + randomSeed);
-          modifiedSignal.width = signal.width * (0.98 + 0.04 * Math.sin(elapsedTime * 0.4 + randomSeed));
+          // Civilian signals - very stable to reduce calculations
+          modifiedSignal.strength = signal.strength * (0.97 + 0.03 * Math.sin(elapsedTime * 0.3 + randomSeed));
+          modifiedSignal.position = signal.position;
+          modifiedSignal.width = signal.width;
         }
         
         return modifiedSignal;
       });
       
-      // Add occasional noise spikes (less frequent for cleaner display)
-      if (Math.random() < 0.02) {
+      // Reduce noise spike frequency
+      if (Math.random() < 0.01) {
         animatedSignals.push({
           name: 'NOISE',
           position: Math.random(),
@@ -861,8 +914,8 @@ function animateSpectrum() {
         });
       }
       
-      // Analyze signals for tactical alerts (once per second)
-      if (now - signalTracker.lastUpdate > 1000) {
+      // Analyze signals for tactical alerts only once per 2 seconds
+      if (now - signalTracker.lastUpdate > 2000) {
         analyzeTacticalSignals(animatedSignals);
         signalTracker.lastUpdate = now;
       }
@@ -871,11 +924,36 @@ function animateSpectrum() {
       updateSpectrumAnalyzer(animatedSignals);
     }
     
-    // Use requestAnimationFrame for smoother animation
-    // But limit refresh rate to 10fps for performance
+    // Track frame performance
+    const frameTime = performance.now() - frameStartTime;
+    frameTimes.push(frameTime);
+    if (frameTimes.length > 10) frameTimes.shift();
+    
+    // Calculate average frame time
+    const avgFrameTime = frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length;
+    
+    // Automatically adjust refresh rate based on performance
+    let refreshDelay = 100; // Default 10fps
+    
+    if (avgFrameTime > 50) {
+      // If frames are taking >50ms, slow down to 5fps
+      refreshDelay = 200;
+      slowFrameCount++;
+      
+      // If consistently slow, further reduce quality
+      if (slowFrameCount > 10) {
+        // Further reduce quality here if needed
+        slowFrameCount = 10; // Cap the counter
+      }
+    } else {
+      // Reset slow frame counter if performance is good
+      slowFrameCount = Math.max(0, slowFrameCount - 1);
+    }
+    
+    // Schedule next frame with adaptive delay
     setTimeout(() => {
       requestAnimationFrame(updateAnimation);
-    }, 100);
+    }, refreshDelay);
   }
   
   // Analyze signals for tactical information
