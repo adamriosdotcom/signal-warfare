@@ -29,15 +29,15 @@ ECHO ZERO transforms electromagnetic warfare into an exciting, educational exper
 
 #### Visual Enhancements
 - [x] Redesign UI with professional tactical aesthetic
-- [ ] Add dynamic lighting effects for jammers and signal propagation
+- [x] Add dynamic lighting effects for jammers and signal propagation
 - [ ] Implement detailed 3D models for drones and jammers
-- [ ] Create particle effects for signal visualization
+- [x] Create particle effects for signal visualization
 - [x] Implement modular, panel-based interface design
 
 #### Gameplay Improvements
 - [ ] Enhance jammer placement mechanics with preview functionality
 - [ ] Implement energy resource management for jammers
-- [ ] Add cooldown visualization and feedback
+- [x] Add cooldown visualization and feedback
 - [ ] Create more elaborate victory/defeat screens
 - [ ] Implement simple sound effects for actions and feedback
 
@@ -45,7 +45,7 @@ ECHO ZERO transforms electromagnetic warfare into an exciting, educational exper
 - [ ] Optimize performance for larger scenes
 - [x] Implement responsive UI scaling for different screen sizes
 - [ ] Add basic analytics to track player behavior
-- [ ] Refine RF propagation visualization
+- [x] Refine RF propagation visualization
 
 ### Phase 2: Advanced Gameplay and Simulation (v0.3)
 *Estimated timeline: 8-10 weeks*
