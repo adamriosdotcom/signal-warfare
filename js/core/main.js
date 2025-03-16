@@ -90,6 +90,10 @@ class GameEngine {
     this.camera.position.set(0, 60, 1200); // Lower to ground, looking down the infinite grid
     this.camera.lookAt(0, 0, -CONFIG.terrain.height * 0.5); // Look ahead down the grid
     
+    // Store initial camera state for orbital controls
+    this.initialCameraPosition = this.camera.position.clone();
+    this.initialCameraTarget = new THREE.Vector3(0, 0, -CONFIG.terrain.height * 0.5);
+    
     console.log("Camera positioned for 3D terrain view");
     
     // Create renderer
@@ -191,9 +195,39 @@ class GameEngine {
     */
   }
   
-  // Setup enhanced camera controls
+  // Setup 360-degree camera controls
   setupCameraControls() {
-    // Camera state
+    // Import OrbitControls from Three.js if available
+    try {
+      // Check if THREE.OrbitControls or OrbitControls exists
+      if (typeof THREE.OrbitControls !== 'undefined') {
+        console.log("Using Three.js OrbitControls for camera");
+        this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+        this.controls.enableDamping = true;
+        this.controls.dampingFactor = 0.1;
+        this.controls.rotateSpeed = 0.5;
+        this.controls.panSpeed = 0.8;
+        this.controls.zoomSpeed = 1.2;
+        this.controls.minDistance = 100;
+        this.controls.maxDistance = 5000;
+        
+        // Add controls to visualization objects for updates
+        this.visualizationObjects.set('orbitControls', {
+          userData: {
+            update: (deltaTime) => {
+              this.controls.update();
+            }
+          }
+        });
+        
+        // Don't set up custom controls if OrbitControls is available
+        return;
+      }
+    } catch (e) {
+      console.log("OrbitControls not available, using custom controls");
+    }
+  
+    // Camera state with pitch control
     this.cameraState = {
       target: new THREE.Vector3(0, 0, 0),
       position: new THREE.Vector3(0, 0, 800),
@@ -206,7 +240,10 @@ class GameEngine {
       isRotating: false,
       isPanning: false,
       dragStartPosition: { x: 0, y: 0 },
-      rotationAngle: 0
+      yawAngle: 0,  // Horizontal rotation (left-right)
+      pitchAngle: 0, // Vertical rotation (up-down)
+      minPitchAngle: -Math.PI * 0.45, // Limit looking up
+      maxPitchAngle: Math.PI * 0.45   // Limit looking down
     };
     
     // Set initial camera position
@@ -224,18 +261,8 @@ class GameEngine {
         Math.min(this.cameraState.maxZoom, this.cameraState.zoom + zoomChange)
       );
       
-      // Apply zoom to camera
-      const direction = new THREE.Vector3().subVectors(
-        this.camera.position,
-        this.cameraState.target
-      ).normalize();
-      
-      const distance = this.cameraState.target.distanceTo(this.camera.position);
-      const newDistance = (800 / this.cameraState.zoom);
-      
-      this.camera.position.copy(this.cameraState.target).add(
-        direction.multiplyScalar(newDistance)
-      );
+      // Calculate spherical coordinates
+      this.updateCameraPosition();
       
       // Update camera
       this.camera.updateProjectionMatrix();
@@ -243,7 +270,7 @@ class GameEngine {
     
     // Middle mouse button for rotation
     this.renderer.domElement.addEventListener('mousedown', (event) => {
-      if (event.button === 1) { // Middle mouse button
+      if (event.button === 1 || event.button === 0) { // Middle or Left mouse button
         event.preventDefault();
         this.cameraState.isRotating = true;
         this.cameraState.dragStartPosition.x = event.clientX;
@@ -256,25 +283,25 @@ class GameEngine {
       }
     });
     
-    // Mouse move for rotation/panning
+    // Mouse move for 360-degree rotation/panning
     this.renderer.domElement.addEventListener('mousemove', (event) => {
       if (this.cameraState.isRotating) {
-        // Calculate rotation
+        // Calculate rotation deltas
         const deltaX = event.clientX - this.cameraState.dragStartPosition.x;
         const deltaY = event.clientY - this.cameraState.dragStartPosition.y;
         
-        // Update rotation angles
-        this.cameraState.rotationAngle -= deltaX * this.cameraState.rotateSpeed * 0.01;
+        // Update yaw (horizontal) and pitch (vertical) angles
+        this.cameraState.yawAngle -= deltaX * this.cameraState.rotateSpeed * 0.01;
         
-        // Calculate new camera position
-        const distance = this.cameraState.target.distanceTo(this.camera.position);
-        const height = this.camera.position.y;
+        // Update pitch with limits to prevent flipping
+        this.cameraState.pitchAngle -= deltaY * this.cameraState.rotateSpeed * 0.01;
+        this.cameraState.pitchAngle = Math.max(
+          this.cameraState.minPitchAngle, 
+          Math.min(this.cameraState.maxPitchAngle, this.cameraState.pitchAngle)
+        );
         
-        this.camera.position.x = this.cameraState.target.x + distance * Math.sin(this.cameraState.rotationAngle);
-        this.camera.position.z = this.cameraState.target.z + distance * Math.cos(this.cameraState.rotationAngle);
-        
-        // Look at target
-        this.camera.lookAt(this.cameraState.target);
+        // Update camera position using spherical coordinates
+        this.updateCameraPosition();
         
         // Update start position
         this.cameraState.dragStartPosition.x = event.clientX;
@@ -284,18 +311,24 @@ class GameEngine {
         const deltaX = (event.clientX - this.cameraState.dragStartPosition.x) * 0.5;
         const deltaY = (event.clientY - this.cameraState.dragStartPosition.y) * 0.5;
         
-        // Calculate camera right and up vectors
+        // Calculate camera right and up vectors for panning
+        const forward = new THREE.Vector3();
+        this.camera.getWorldDirection(forward);
+        
         const right = new THREE.Vector3();
-        const up = new THREE.Vector3(0, 1, 0);
-        right.crossVectors(up, this.camera.getWorldDirection(new THREE.Vector3()));
+        right.crossVectors(new THREE.Vector3(0, 1, 0), forward).normalize();
+        
+        const up = new THREE.Vector3();
+        up.crossVectors(forward, right).normalize();
         
         // Apply movement
-        this.cameraState.target.add(right.multiplyScalar(-deltaX));
-        this.cameraState.target.add(up.multiplyScalar(-deltaY));
+        const moveX = right.multiplyScalar(-deltaX);
+        const moveY = up.multiplyScalar(-deltaY);
         
-        // Move camera
-        this.camera.position.add(right.multiplyScalar(-deltaX));
-        this.camera.position.add(up.multiplyScalar(-deltaY));
+        this.cameraState.target.add(moveX);
+        this.cameraState.target.add(moveY);
+        this.camera.position.add(moveX);
+        this.camera.position.add(moveY);
         
         // Update start position
         this.cameraState.dragStartPosition.x = event.clientX;
@@ -313,6 +346,63 @@ class GameEngine {
     this.renderer.domElement.addEventListener('contextmenu', (event) => {
       event.preventDefault();
     });
+    
+    // Add a key handler for resetting camera
+    window.addEventListener('keydown', (event) => {
+      // Press 'R' to reset camera
+      if (event.key === 'r' || event.key === 'R') {
+        this.resetCamera();
+      }
+    });
+  }
+  
+  // Update camera position using spherical coordinates for 360-degree rotation
+  updateCameraPosition() {
+    // Get distance between camera and target
+    const distance = this.cameraState.target.distanceTo(this.camera.position) / this.cameraState.zoom;
+    
+    // Convert spherical coordinates to Cartesian (corrected formula)
+    // In standard spherical coordinates:
+    // x = r * sin(θ) * cos(φ)
+    // y = r * sin(θ) * sin(φ)
+    // z = r * cos(θ)
+    // But for camera control, we're using pitch and yaw:
+    // pitch = theta (up/down angle from y-axis)
+    // yaw = phi (angle around y-axis)
+    const x = distance * Math.cos(this.cameraState.pitchAngle) * Math.sin(this.cameraState.yawAngle);
+    const y = distance * Math.sin(this.cameraState.pitchAngle);
+    const z = distance * Math.cos(this.cameraState.pitchAngle) * Math.cos(this.cameraState.yawAngle);
+    
+    // Set camera position
+    this.camera.position.set(
+      this.cameraState.target.x + x,
+      this.cameraState.target.y + y,
+      this.cameraState.target.z + z
+    );
+    
+    // Look at target
+    this.camera.lookAt(this.cameraState.target);
+  }
+  
+  // Reset camera to initial vaporwave position
+  resetCamera() {
+    if (this.controls) {
+      // If using OrbitControls
+      this.controls.reset();
+    } else {
+      // If using custom controls
+      this.cameraState.yawAngle = 0;
+      this.cameraState.pitchAngle = 0;
+      this.cameraState.zoom = 1.0;
+      this.cameraState.target = this.initialCameraTarget || new THREE.Vector3(0, 0, -CONFIG.terrain.height * 0.5);
+      this.updateCameraPosition();
+    }
+    
+    // Reset position directly if needed
+    this.camera.position.copy(this.initialCameraPosition || new THREE.Vector3(0, 60, 1200));
+    this.camera.lookAt(this.initialCameraTarget || new THREE.Vector3(0, 0, -CONFIG.terrain.height * 0.5));
+    
+    console.log("Camera reset to vaporwave view position");
   }
   
   // Initialize Entity-Component-System
