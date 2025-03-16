@@ -783,8 +783,156 @@ class GameEngine {
         });
         
         this.showAlert(`RF visualization ${rfSystem.enabled ? 'enabled' : 'disabled'}`, 'info');
+        
+        // Add a special effect when enabling RF visualization
+        if (rfSystem.enabled) {
+          // Create temporary flash effect
+          this.createRFToggleEffect();
+        }
       }
     }
+  }
+  
+  // Create a special effect when toggling RF visualization
+  createRFToggleEffect() {
+    // Create a temporary flash effect to indicate RF visualization mode change
+    const flashEffect = document.createElement('div');
+    flashEffect.className = 'rf-toggle-flash';
+    document.body.appendChild(flashEffect);
+    
+    // Add CSS for flash effect if not already in stylesheet
+    if (!document.getElementById('rf-toggle-style')) {
+      const styleElement = document.createElement('style');
+      styleElement.id = 'rf-toggle-style';
+      styleElement.innerHTML = `
+        .rf-toggle-flash {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: radial-gradient(circle, rgba(0, 132, 255, 0.2) 0%, rgba(0, 0, 0, 0) 70%);
+          z-index: 9999;
+          pointer-events: none;
+          opacity: 0;
+          animation: rf-flash 1s ease-out forwards;
+        }
+        
+        @keyframes rf-flash {
+          0% { opacity: 0; }
+          20% { opacity: 0.8; }
+          100% { opacity: 0; }
+        }
+      `;
+      document.head.appendChild(styleElement);
+    }
+    
+    // Create spatial RF "pulse" effect in the 3D scene
+    const createRFPulse = () => {
+      // Create a sphere geometry for the pulse
+      const geometry = new THREE.SphereGeometry(10, 32, 16);
+      
+      // Create a shader material for the pulse
+      const material = new THREE.ShaderMaterial({
+        transparent: true,
+        uniforms: {
+          time: { value: 0 },
+          color: { value: new THREE.Color(0x0084ff) }, // Electric blue
+          pulseRadius: { value: 0 }
+        },
+        vertexShader: `
+          varying vec3 vPosition;
+          
+          void main() {
+            vPosition = position;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          uniform vec3 color;
+          uniform float time;
+          uniform float pulseRadius;
+          
+          varying vec3 vPosition;
+          
+          void main() {
+            // Calculate distance from center
+            float dist = length(vPosition);
+            
+            // Create a ring effect
+            float ringWidth = 20.0;
+            float ringEdge = pulseRadius;
+            float ringOpacity = 1.0 - smoothstep(ringEdge - ringWidth, ringEdge, dist);
+            
+            // Sharp falloff at the expanding edge
+            float edgeOpacity = 1.0 - smoothstep(ringEdge - 5.0, ringEdge, dist);
+            
+            // Combine for final opacity
+            float opacity = ringOpacity * edgeOpacity * 0.6;
+            
+            // Final color
+            vec3 finalColor = color + vec3(0.2, 0.5, 1.0) * edgeOpacity;
+            
+            gl_FragColor = vec4(finalColor, opacity);
+          }
+        `
+      });
+      
+      // Create mesh and add to scene
+      const pulse = new THREE.Mesh(geometry, material);
+      
+      // Place at the center of the map
+      pulse.position.set(0, 0, 0);
+      pulse.scale.set(1, 1, 1);
+      
+      // Add to scene
+      this.scene.add(pulse);
+      
+      // Animation
+      const startTime = performance.now();
+      const duration = 2000; // 2 seconds
+      const maxRadius = 800; // Max pulse radius
+      
+      const animatePulse = () => {
+        const elapsed = performance.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // Update uniform
+        pulse.material.uniforms.time.value = progress;
+        pulse.material.uniforms.pulseRadius.value = progress * maxRadius;
+        
+        // Scale the pulse
+        const scale = 1 + progress * 20;
+        pulse.scale.set(scale, scale, scale);
+        
+        // Update material opacity
+        material.opacity = 1 - progress;
+        
+        if (progress < 1) {
+          requestAnimationFrame(animatePulse);
+        } else {
+          // Remove from scene when done
+          this.scene.remove(pulse);
+          // Dispose of resources
+          geometry.dispose();
+          material.dispose();
+        }
+      };
+      
+      // Start animation
+      animatePulse();
+    };
+    
+    // Create multiple pulses
+    createRFPulse();
+    setTimeout(() => createRFPulse(), 200);
+    setTimeout(() => createRFPulse(), 400);
+    
+    // Remove the flash effect after animation completes
+    setTimeout(() => {
+      document.body.removeChild(flashEffect);
+    }, 1000);
+  
   }
   
   // Reset camera to default position
