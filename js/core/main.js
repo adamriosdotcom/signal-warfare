@@ -2664,7 +2664,7 @@ class GameEngine {
     
     // Add "Help" message for camera controls
     else if (key === 'h') {
-      this.showAlert('Camera Controls: WASD=position, Z/X=forward/back, QE=height, Arrows=rotate (multiple keys work simultaneously), R=reset, B=biome view, M=start mission', 'info');
+      this.showAlert('Camera Controls: WASD=position, Z/X=forward/back, QE=height, Arrows=rotate, Shift=sprint, R=reset, B=biome view, M=start mission (multiple keys work simultaneously)', 'info');
     }
     
     // Start mission with 'M' key
@@ -3066,7 +3066,15 @@ class GameEngine {
     if (!this.cameraState) return;
     
     // Movement constants
-    const moveSpeed = 100 * deltaTime; // Scale with delta time
+    const baseMoveSpeed = 100;
+    const moveSpeed = baseMoveSpeed * deltaTime; // Scale with delta time
+    const forwardSpeed = baseMoveSpeed * 4 * deltaTime; // 4x faster forward/backward movement
+    
+    // Check for sprint modifier (Shift key)
+    const sprintMultiplier = this.keys['Shift'] ? 2.5 : 1.0; // 2.5x speed when Shift is pressed
+    const actualMoveSpeed = moveSpeed * sprintMultiplier;
+    const actualForwardSpeed = forwardSpeed * sprintMultiplier;
+    
     const rotateSpeed = 0.05 * deltaTime * 60; // Scale with delta time
     const MIN_CAMERA_HEIGHT = 1000;
     const TERRAIN_HEIGHT = -1000;
@@ -3074,9 +3082,9 @@ class GameEngine {
     
     // Check for camera movement keys (WASD)
     if (this.keys['w']) {
-      // Move forward
-      this.camera.position.y += moveSpeed;
-      this.cameraState.target.y += moveSpeed;
+      // Move forward (faster speed with sprint modifier)
+      this.camera.position.y += actualForwardSpeed;
+      this.cameraState.target.y += actualForwardSpeed;
       
       // Stop intro animation when moving
       if (this.introAnimationActive) {
@@ -3086,10 +3094,10 @@ class GameEngine {
     }
     
     if (this.keys['s']) {
-      // Move backward with height check
+      // Move backward with height check (faster speed)
       if (this.camera.position.y > TERRAIN_HEIGHT + SAFE_DISTANCE) {
-        this.camera.position.y -= moveSpeed;
-        this.cameraState.target.y -= moveSpeed;
+        this.camera.position.y -= actualForwardSpeed;
+        this.cameraState.target.y -= actualForwardSpeed;
       }
       
       // Stop intro animation when moving
@@ -3101,8 +3109,8 @@ class GameEngine {
     
     if (this.keys['a']) {
       // Move left
-      this.camera.position.x -= moveSpeed;
-      this.cameraState.target.x -= moveSpeed;
+      this.camera.position.x -= actualMoveSpeed;
+      this.cameraState.target.x -= actualMoveSpeed;
       
       // Stop intro animation when moving
       if (this.introAnimationActive) {
@@ -3113,8 +3121,8 @@ class GameEngine {
     
     if (this.keys['d']) {
       // Move right
-      this.camera.position.x += moveSpeed;
-      this.cameraState.target.x += moveSpeed;
+      this.camera.position.x += actualMoveSpeed;
+      this.cameraState.target.x += actualMoveSpeed;
       
       // Stop intro animation when moving
       if (this.introAnimationActive) {
@@ -3125,12 +3133,12 @@ class GameEngine {
     
     // Forward/backward in camera direction with Z/X
     if (this.keys['z']) {
-      // Move forward in camera direction
+      // Move forward in camera direction (faster speed)
       const direction = new THREE.Vector3();
       this.camera.getWorldDirection(direction);
       
       // Scale the direction vector and move both camera and target
-      direction.multiplyScalar(moveSpeed);
+      direction.multiplyScalar(actualForwardSpeed);
       this.camera.position.add(direction);
       this.cameraState.target.add(direction);
       
@@ -3142,12 +3150,12 @@ class GameEngine {
     }
     
     if (this.keys['x']) {
-      // Move backward in camera direction
+      // Move backward in camera direction (faster speed)
       const direction = new THREE.Vector3();
       this.camera.getWorldDirection(direction);
       
       // Scale the direction vector and move both camera and target
-      direction.multiplyScalar(-moveSpeed);
+      direction.multiplyScalar(-actualForwardSpeed);
       this.camera.position.add(direction);
       this.cameraState.target.add(direction);
       
@@ -3161,7 +3169,7 @@ class GameEngine {
     // Camera elevation with Q/E
     if (this.keys['q']) {
       // Move up
-      this.camera.position.z += moveSpeed;
+      this.camera.position.z += actualMoveSpeed;
       this.camera.lookAt(this.cameraState.target);
       
       // Stop intro animation when moving
@@ -3174,7 +3182,7 @@ class GameEngine {
     if (this.keys['e']) {
       // Move down (with limit)
       if (this.camera.position.z > 300) {
-        this.camera.position.z -= moveSpeed;
+        this.camera.position.z -= actualMoveSpeed;
         this.camera.lookAt(this.cameraState.target);
       }
       
