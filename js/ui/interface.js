@@ -94,31 +94,62 @@ function initAssetPanelTabs() {
 function initMapLayerToggles() {
   const mapToggles = document.querySelectorAll('.map-toggle');
   
+  // Apply default active styles (backup in case CSS isn't working)
+  const applyActiveStyle = (element) => {
+    element.style.backgroundColor = '#28b98a'; // --alert-green-dark
+    element.style.color = '#ffffff'; // --text-bright
+    element.style.borderColor = '#36f9b3'; // --alert-green
+    element.style.boxShadow = '0 0 5px rgba(54, 249, 179, 0.4)';
+    element.style.fontWeight = '600';
+  };
+  
+  // Reset to inactive style
+  const resetStyle = (element) => {
+    element.style.backgroundColor = '';
+    element.style.color = '';
+    element.style.borderColor = '';
+    element.style.boxShadow = '';
+    element.style.fontWeight = '';
+  };
+  
   mapToggles.forEach(toggle => {
     toggle.addEventListener('click', () => {
       const layer = toggle.dataset.layer;
       console.log(`Map toggle clicked: ${layer}`);
       
-      // Simplify: Always treat clicks as turning the layer on
-      // First, remove 'active' class from all map toggles
+      // Remove active class and reset styles on all toggles
       document.querySelectorAll('.map-toggle').forEach(t => {
         t.classList.remove('active');
-        console.log(`Removed active class from ${t.dataset.layer}`);
+        resetStyle(t);
+        console.log(`Reset styles for ${t.dataset.layer}`);
       });
       
-      // Then, add 'active' class to the clicked toggle
+      // Add active class and apply styles to the clicked toggle
       toggle.classList.add('active');
-      console.log(`Added active class to ${layer}`);
+      applyActiveStyle(toggle);
+      console.log(`Applied active styles to ${layer} toggle`);
+      
+      // Force DOM update with a small delay
+      setTimeout(() => {
+        // Double-check active state persisted
+        if (!toggle.classList.contains('active')) {
+          console.warn(`Active class lost on ${layer}, reapplying`);
+          toggle.classList.add('active');
+          applyActiveStyle(toggle);
+        }
+      }, 50);
       
       // Update the tactical map when layers change
       updateTacticalMap(window.gameState, window.assets || []);
     });
   });
   
-  // Ensure initial state - for safety, make sure Terrain is active by default
+  // Ensure initial state - make sure Terrain is active by default
   const terrainToggle = document.querySelector('.map-toggle[data-layer="terrain"]');
   if (terrainToggle) {
     terrainToggle.classList.add('active');
+    applyActiveStyle(terrainToggle);
+    console.log('Set initial active state on terrain toggle');
   }
 }
 
