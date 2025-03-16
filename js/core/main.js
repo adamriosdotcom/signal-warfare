@@ -2604,18 +2604,20 @@ class GameEngine {
     }
     
     // Enhanced 3D terrain camera controls
-    // WASD movement
+    // Movement and rotation constants
     const moveSpeed = 100;
+    const rotateSpeed = 0.05;
+    const MIN_CAMERA_HEIGHT = 1000; // Minimum safe height to prevent going underground
+    const TERRAIN_HEIGHT = -1000; // Position of terrain in Y coordinate
+    const SAFE_DISTANCE = MIN_CAMERA_HEIGHT - TERRAIN_HEIGHT; // Safety margin
+    
+    // WASD movement (translation)
     if (key === 'w') {
       // Move forward
       this.camera.position.y += moveSpeed;
       if (this.cameraState) this.cameraState.target.y += moveSpeed;
     } else if (key === 's') {
       // Move backward (with minimum height check to prevent going underground)
-      const MIN_CAMERA_HEIGHT = 1000; // Minimum safe height to prevent going underground
-      const TERRAIN_HEIGHT = -1000; // Position of terrain in Y coordinate
-      const SAFE_DISTANCE = MIN_CAMERA_HEIGHT - TERRAIN_HEIGHT; // Safety margin
-      
       // Only move down if we're above the minimum height from terrain
       if (this.camera.position.y > TERRAIN_HEIGHT + SAFE_DISTANCE) {
         this.camera.position.y -= moveSpeed;
@@ -2631,6 +2633,27 @@ class GameEngine {
       if (this.cameraState) this.cameraState.target.x += moveSpeed;
     }
     
+    // Forward/Backward movement with Z/X keys
+    else if (key === 'z') {
+      // Move forward in camera direction
+      const direction = new THREE.Vector3();
+      this.camera.getWorldDirection(direction);
+      
+      // Scale the direction vector and move both camera and target
+      direction.multiplyScalar(moveSpeed);
+      this.camera.position.add(direction);
+      if (this.cameraState) this.cameraState.target.add(direction);
+    } else if (key === 'x') {
+      // Move backward in camera direction
+      const direction = new THREE.Vector3();
+      this.camera.getWorldDirection(direction);
+      
+      // Scale the direction vector and move both camera and target
+      direction.multiplyScalar(-moveSpeed);
+      this.camera.position.add(direction);
+      if (this.cameraState) this.cameraState.target.add(direction);
+    }
+    
     // Camera elevation controls
     else if (key === 'q') {
       // Move up
@@ -2641,6 +2664,39 @@ class GameEngine {
       if (this.camera.position.z > 300) {
         this.camera.position.z -= moveSpeed;
         this.camera.lookAt(this.cameraState ? this.cameraState.target : new THREE.Vector3(0, 0, 0));
+      }
+    }
+    
+    // Arrow keys for rotation
+    else if (key === 'ArrowLeft') {
+      // Rotate camera left (increase yaw)
+      if (this.cameraState) {
+        this.cameraState.yawAngle += rotateSpeed;
+        this.updateCameraPosition();
+      }
+    } else if (key === 'ArrowRight') {
+      // Rotate camera right (decrease yaw)
+      if (this.cameraState) {
+        this.cameraState.yawAngle -= rotateSpeed;
+        this.updateCameraPosition();
+      }
+    } else if (key === 'ArrowUp') {
+      // Rotate camera up (increase pitch, with limit)
+      if (this.cameraState) {
+        this.cameraState.pitchAngle = Math.min(
+          this.cameraState.maxPitchAngle,
+          this.cameraState.pitchAngle + rotateSpeed
+        );
+        this.updateCameraPosition();
+      }
+    } else if (key === 'ArrowDown') {
+      // Rotate camera down (decrease pitch, with limit)
+      if (this.cameraState) {
+        this.cameraState.pitchAngle = Math.max(
+          this.cameraState.minPitchAngle,
+          this.cameraState.pitchAngle - rotateSpeed
+        );
+        this.updateCameraPosition();
       }
     }
     
@@ -2686,7 +2742,7 @@ class GameEngine {
     
     // Add "Help" message for camera controls
     else if (key === 'h') {
-      this.showAlert('Camera Controls: WASD=move, QE=height, R=reset, F=wireframe, B=biome view, D=debug mode, M=start mission', 'info');
+      this.showAlert('Camera Controls: WASD=position, Z/X=forward/back, QE=height, Arrows=rotate, R=reset, F=wireframe, B=biome view, M=start mission', 'info');
     }
     
     // Start mission with 'M' key
