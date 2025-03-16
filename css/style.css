@@ -308,8 +308,8 @@ input:focus, textarea:focus, select:focus {
   font-weight: 600;
   font-family: var(--font-mono);
   letter-spacing: 1px;
-  color: var(--accent-primary);
-  text-shadow: 0 0 8px rgba(0, 132, 255, 0.4);
+  color: var(--alert-green);
+  text-shadow: 0 0 8px rgba(54, 249, 179, 0.4);
 }
 
 .header-items {
@@ -494,7 +494,7 @@ input:focus, textarea:focus, select:focus {
 }
 
 .map-toggle.active {
-  background-color: var(--accent-primary);
+  background-color: var(--alert-green);
   color: var(--text-primary);
 }
 
@@ -545,7 +545,7 @@ input:focus, textarea:focus, select:focus {
 }
 
 .asset-tab.active {
-  background-color: var(--accent-primary);
+  background-color: var(--alert-green);
   color: var(--text-primary);
 }
 
@@ -569,9 +569,9 @@ input:focus, textarea:focus, select:focus {
 }
 
 .jammer-button.selected {
-  background-color: var(--accent-primary);
-  border-color: var(--accent-secondary);
-  box-shadow: 0 0 10px rgba(0, 132, 255, 0.4);
+  background-color: var(--alert-green);
+  border-color: var(--accent-tertiary);
+  box-shadow: 0 0 10px rgba(54, 249, 179, 0.4);
 }
 
 .status-indicators {
@@ -626,15 +626,15 @@ input:focus, textarea:focus, select:focus {
 }
 
 .message.system {
-  color: var(--accent-secondary);
+  color: var(--alert-green);
   font-family: var(--font-mono);
   font-size: 10px; /* Smaller font */
 }
 
 .message.raven {
-  background-color: rgba(0, 132, 255, 0.1);
-  border-left: 3px solid var(--accent-primary);
-  color: var(--text-primary);
+  background-color: rgba(54, 249, 179, 0.1);
+  border-left: 3px solid var(--alert-green);
+  color: var(--alert-green);
 }
 
 .message.user {
@@ -652,8 +652,8 @@ input:focus, textarea:focus, select:focus {
 
 .suggestion {
   padding: 5px 8px; /* Less padding */
-  background-color: rgba(0, 132, 255, 0.1);
-  border: 1px solid rgba(0, 132, 255, 0.3);
+  background-color: rgba(54, 249, 179, 0.1);
+  border: 1px solid rgba(54, 249, 179, 0.3);
   border-radius: var(--button-radius);
   cursor: pointer;
   font-size: 11px; /* Smaller font */
@@ -697,17 +697,17 @@ input:focus, textarea:focus, select:focus {
 
 #raven-panel button#raven-send:hover, 
 #raven-panel button#raven-settings:hover {
-  background-color: var(--accent-primary) !important;
-  border-color: var(--accent-secondary) !important;
+  background-color: var(--alert-green) !important;
+  border-color: var(--accent-tertiary) !important;
   color: var(--text-bright) !important;
-  box-shadow: var(--glow-blue) !important;
+  box-shadow: 0 0 10px rgba(54, 249, 179, 0.4) !important;
   transform: translateY(-1px) !important;
 }
 
 #raven-panel button#raven-send:active, 
 #raven-panel button#raven-settings:active {
   transform: translateY(0) !important;
-  background-color: var(--accent-secondary) !important;
+  background-color: var(--accent-tertiary) !important;
 }
 
 /* ==================== Visual Effects ==================== */
