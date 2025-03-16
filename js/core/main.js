@@ -549,8 +549,8 @@ class GameEngine {
     this.terrainWidth = CONFIG.terrain.width * 1.5; // Wider to prevent seeing edges
     this.terrainHeight = CONFIG.terrain.height * 2.5; // Longer for better infinite effect
     
-    // Create a lower resolution terrain for vaporwave aesthetic
-    const resolution = 24; // Lower poly for vaporwave style
+    // Create a higher resolution terrain for tactical military look
+    const resolution = 48; // Higher resolution for finer grid and more detailed terrain
     const geometry = new THREE.PlaneGeometry(
       this.terrainWidth, 
       this.terrainHeight, 
@@ -567,18 +567,18 @@ class GameEngine {
     // Create displacement map for terrain edges
     const displacementTexture = this.createDisplacementMap(resolution);
     
-    // Add material with enhanced vaporwave aesthetic
+    // Add material with tactical military aesthetic
     const material = new THREE.MeshStandardMaterial({
       map: gridTexture,
       displacementMap: displacementTexture,
-      displacementScale: 650, // Significantly increased displacement for very pronounced terrain
+      displacementScale: 600, // Slightly reduced displacement for more realistic terrain
       metalnessMap: metalnessTexture,
-      metalness: 0.9,
-      roughness: 0.4,
-      emissive: 0x1a0033,
-      emissiveIntensity: 0.05,
+      metalness: 0.3, // Much less metallic for non-reflective tactical look
+      roughness: 0.8, // Much rougher for matte finish
+      emissive: 0x001100, // Very subtle dark green glow
+      emissiveIntensity: 0.02, // Much less emissive
       side: THREE.DoubleSide,
-      normalScale: new THREE.Vector2(1.5, 1.5), // Enhance surface detail
+      normalScale: new THREE.Vector2(1.2, 1.2), // Slightly reduced surface detail
       wireframe: false
     });
     
@@ -598,9 +598,9 @@ class GameEngine {
     this.terrain2.position.z = -this.terrainHeight; // Position behind first terrain
     this.terrain2.receiveShadow = true;
     
-    // Add dark fog for vaporwave depth effect - adjusted for larger terrain
-    this.scene.fog = new THREE.Fog('#000000', this.terrainHeight * 0.35, this.terrainHeight * 0.85);
-    this.scene.background = new THREE.Color('#000000');
+    // Add tactical atmosphere fog - subtle bluish-green night vision tint
+    this.scene.fog = new THREE.Fog('#0a1410', this.terrainHeight * 0.35, this.terrainHeight * 0.85);
+    this.scene.background = new THREE.Color('#0a1410');
     
     // Add terrains to scene
     this.scene.add(this.terrain);
@@ -619,50 +619,102 @@ class GameEngine {
     console.log("Vaporwave 3D terrain creation complete");
   }
   
-  // Create enhanced vaporwave lighting with colored spotlights
+  // Create tactical military lighting setup
   createVaporwaveLighting() {
-    // Add ambient light for base visibility
-    const ambientLight = new THREE.AmbientLight(0x111111, 0.5);
+    // Add ambient light for base visibility - neutral gray
+    const ambientLight = new THREE.AmbientLight(0x444444, 0.7);
     this.scene.add(ambientLight);
     
-    // Add right spotlight with pinkish/red color (brighter) - adjusted for wider terrain
-    const spotlightRight = new THREE.SpotLight('#ff3366', 25, this.terrainWidth * 1.2, Math.PI * 0.1, 0.25);
-    spotlightRight.position.set(this.terrainWidth * 0.25, 800, 500);
-    spotlightRight.target.position.set(-this.terrainWidth * 0.25, 0, 0);
+    // Add directional light to simulate sun/moonlight - subtle bluish tint for night operations
+    const directionalLight = new THREE.DirectionalLight(0xc0d8ff, 0.6);
+    directionalLight.position.set(-500, 1000, 200);
+    directionalLight.castShadow = true;
+    directionalLight.shadow.mapSize.width = 2048;
+    directionalLight.shadow.mapSize.height = 2048;
+    directionalLight.shadow.camera.far = 3500;
+    directionalLight.shadow.bias = -0.0001;
+    this.scene.add(directionalLight);
+    
+    // Add right tactical floodlight - greenish tint for night vision
+    const spotlightRight = new THREE.SpotLight(0x3a5f41, 10, this.terrainWidth * 1.0, Math.PI * 0.15, 0.8);
+    spotlightRight.position.set(this.terrainWidth * 0.2, 800, 300);
+    spotlightRight.target.position.set(0, -100, -this.terrainHeight * 0.3);
     this.scene.add(spotlightRight);
     this.scene.add(spotlightRight.target);
     
-    // Add left spotlight with cyan/blue color for contrast - adjusted for wider terrain
-    const spotlightLeft = new THREE.SpotLight('#00ccff', 25, this.terrainWidth * 1.2, Math.PI * 0.1, 0.25);
-    spotlightLeft.position.set(-this.terrainWidth * 0.25, 800, 500);
-    spotlightLeft.target.position.set(this.terrainWidth * 0.25, 0, 0);
+    // Add left tactical floodlight - also greenish but less intense
+    const spotlightLeft = new THREE.SpotLight(0x3a5f41, 8, this.terrainWidth * 1.0, Math.PI * 0.15, 0.8);
+    spotlightLeft.position.set(-this.terrainWidth * 0.2, 800, 300);
+    spotlightLeft.target.position.set(0, -100, -this.terrainHeight * 0.3);
     this.scene.add(spotlightLeft);
     this.scene.add(spotlightLeft.target);
     
-    // Add front spotlight with purple tone - adjusted for longer terrain
-    const spotlightFront = new THREE.SpotLight('#cc33ff', 15, this.terrainHeight, Math.PI * 0.15, 0.5);
-    spotlightFront.position.set(0, 600, 1000);
-    spotlightFront.target.position.set(0, 0, -this.terrainHeight * 0.5);
-    this.scene.add(spotlightFront);
-    this.scene.add(spotlightFront.target);
+    // Add area illuminators - simulating flares or tactical lighting
+    const tacticalLights = [
+      { color: 0xf4fcc3, intensity: 2, range: 1000, position: [this.terrainWidth * 0.4, 400, -this.terrainHeight * 0.2] },
+      { color: 0xd8e8c0, intensity: 3, range: 1200, position: [-this.terrainWidth * 0.4, 350, -this.terrainHeight * 0.5] },
+      { color: 0xffffff, intensity: 1, range: 800, position: [0, 500, -this.terrainHeight * 0.7] }
+    ];
     
-    // Add some distant point lights for additional highlights - adjusted for larger terrain
-    const colors = [0xff00ff, 0x00ffff, 0xff3366, 0x33ff99, 0xffcc00]; // Added more colors
-    for (let i = 0; i < colors.length; i++) {
-      const pointLight = new THREE.PointLight(colors[i], 5, this.terrainWidth);
-      const angle = (i / colors.length) * Math.PI * 2;
-      const distance = this.terrainWidth * 0.7;
+    // Add tactical illumination points - more subtle and utilitarian
+    for (let i = 0; i < tacticalLights.length; i++) {
+      const light = tacticalLights[i];
+      const pointLight = new THREE.PointLight(light.color, light.intensity, light.range);
+      pointLight.position.set(...light.position);
+      this.scene.add(pointLight);
+      
+      // Add subtle animation for flares/illuminators
+      if (i > 0) { // Skip first light for stability
+        this.visualizationObjects.set(`tactical-light-${i}`, {
+          userData: {
+            update: (deltaTime) => {
+              // Subtle flickering for realism
+              const flickerAmount = Math.sin(deltaTime * 0.5 + i) * 0.1 + 0.9;
+              pointLight.intensity = light.intensity * flickerAmount;
+              
+              // Subtle position changes for flares/illumination rounds
+              if (i === 1) { // Only animate the second light
+                const time = deltaTime * 0.2;
+                const driftX = Math.sin(time) * 50;
+                const driftZ = Math.cos(time * 0.7) * 50;
+                pointLight.position.x = light.position[0] + driftX;
+                pointLight.position.z = light.position[2] + driftZ;
+              }
+            }
+          }
+        });
+      }
+    }
+    
+    // Add some vehicle or equipment lights - very small and subtle
+    const equipmentLights = [
+      { color: 0xff3300, intensity: 0.5, range: 100 }, // Red warning light
+      { color: 0x33ff00, intensity: 0.3, range: 80 },  // Green indicator
+      { color: 0xffaa00, intensity: 0.4, range: 90 }   // Amber caution light
+    ];
+    
+    // Place equipment lights strategically
+    for (let i = 0; i < equipmentLights.length; i++) {
+      const light = equipmentLights[i];
+      const pointLight = new THREE.PointLight(light.color, light.intensity, light.range);
+      
+      // Position them in tactical locations
+      const positionX = (i - 1) * this.terrainWidth * 0.15;
       pointLight.position.set(
-        Math.cos(angle) * distance,
-        300 + Math.sin(i * 5) * 100,
-        -this.terrainHeight * 0.4 + Math.sin(angle) * distance * 0.5
+        positionX,
+        20, // Low to the ground
+        -this.terrainHeight * 0.3 + (i * 100)
       );
       this.scene.add(pointLight);
       
-      // Add light animation
-      this.visualizationObjects.set(`point-light-${i}`, {
+      // Add light animation for tactical equipment lights
+      this.visualizationObjects.set(`equipment-light-${i}`, {
         userData: {
           update: (deltaTime) => {
+            // Blink effect for tactical equipment
+            const blinkSpeed = i === 0 ? 1.0 : i === 1 ? 0.5 : 0.7; // Different blink rates
+            const blinkState = ((Math.sin(deltaTime * blinkSpeed) + 1) / 2) > 0.7;
+            pointLight.intensity = blinkState ? light.intensity : 0;
             const time = deltaTime * 0.3;
             const y = 300 + Math.sin(time + i) * 100;
             pointLight.position.y = y;
@@ -672,7 +724,7 @@ class GameEngine {
     }
   }
   
-  // Create enhanced grid texture for vaporwave aesthetic
+  // Create tactical military grid texture
   createVaporwaveGridTexture(resolution) {
     const textureSize = 1024;
     const canvas = document.createElement('canvas');
@@ -680,20 +732,19 @@ class GameEngine {
     canvas.height = textureSize;
     const ctx = canvas.getContext('2d');
     
-    // Fill background with deep blue-purple gradient
-    const bgGradient = ctx.createLinearGradient(0, 0, 0, textureSize);
-    bgGradient.addColorStop(0, '#0a001a');
-    bgGradient.addColorStop(1, '#000033');
-    ctx.fillStyle = bgGradient;
+    // Fill background with dark tactical colors
+    ctx.fillStyle = '#0a1410'; // Very dark greenish
     ctx.fillRect(0, 0, textureSize, textureSize);
     
-    // Add some subtle background texture
-    ctx.globalAlpha = 0.1;
-    for (let i = 0; i < 2000; i++) {
+    // Add some subtle noise texture for terrain
+    ctx.globalAlpha = 0.05;
+    for (let i = 0; i < 8000; i++) {
       const x = Math.random() * textureSize;
       const y = Math.random() * textureSize;
       const size = Math.random() * 2;
-      ctx.fillStyle = Math.random() > 0.5 ? '#ffffff' : '#000000';
+      // Use terrain-like colors
+      const colorValue = Math.floor(Math.random() * 40 + 20);
+      ctx.fillStyle = `rgb(${colorValue}, ${colorValue + 10}, ${colorValue - 5})`;
       ctx.fillRect(x, y, size, size);
     }
     ctx.globalAlpha = 1.0;
@@ -701,63 +752,70 @@ class GameEngine {
     // Calculate grid cell size
     const cellSize = textureSize / resolution;
     
-    // Draw grid lines with glow effect
-    const drawGridLine = (x1, y1, x2, y2, color) => {
-      // Draw glow
-      ctx.globalAlpha = 0.2;
-      ctx.shadowColor = color;
-      ctx.shadowBlur = 10;
+    // Draw tactical grid lines without glow
+    const drawGridLine = (x1, y1, x2, y2, color, width) => {
       ctx.strokeStyle = color;
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
-      ctx.stroke();
-      
-      // Draw main line
-      ctx.globalAlpha = 1.0;
-      ctx.shadowBlur = 0;
-      ctx.lineWidth = 2;
+      ctx.lineWidth = width;
       ctx.beginPath();
       ctx.moveTo(x1, y1);
       ctx.lineTo(x2, y2);
       ctx.stroke();
     };
     
-    // Draw horizontal grid lines with gradient color
+    // Primary grid color for tactical look
+    const primaryGridColor = 'rgba(35, 120, 80, 0.4)'; // Subdued green
+    const secondaryGridColor = 'rgba(35, 120, 80, 0.2)'; // Very faint green
+    const tertiaryGridColor = 'rgba(50, 80, 60, 0.15)'; // Barely visible detail lines
+    
+    // Draw horizontal grid lines (tactical style)
     for (let i = 0; i <= resolution; i++) {
       const y = i * cellSize;
-      const progress = i / resolution;
       
-      // Create a gradient color based on position
-      let color;
-      if (progress < 0.33) {
-        color = '#ff00cc'; // Pink at top
-      } else if (progress < 0.66) {
-        color = '#cc33ff'; // Purple in middle
+      // Determine line type based on position
+      if (i % 8 === 0) {
+        // Major grid line
+        drawGridLine(0, y, textureSize, y, primaryGridColor, 1.0);
+      } else if (i % 4 === 0) {
+        // Medium grid line
+        drawGridLine(0, y, textureSize, y, secondaryGridColor, 0.7);
       } else {
-        color = '#3366ff'; // Blue at bottom
+        // Minor grid line
+        drawGridLine(0, y, textureSize, y, tertiaryGridColor, 0.5);
       }
-      
-      drawGridLine(0, y, textureSize, y, color);
     }
     
-    // Draw vertical grid lines with gradient color
+    // Draw vertical grid lines (tactical style)
     for (let i = 0; i <= resolution; i++) {
       const x = i * cellSize;
-      const progress = i / resolution;
       
-      // Create a gradient color based on position
-      let color;
-      if (progress < 0.33) {
-        color = '#ff3366'; // Red on left
-      } else if (progress < 0.66) {
-        color = '#ff33cc'; // Pink in middle
+      // Determine line type based on position
+      if (i % 8 === 0) {
+        // Major grid line
+        drawGridLine(x, 0, x, textureSize, primaryGridColor, 1.0);
+      } else if (i % 4 === 0) {
+        // Medium grid line
+        drawGridLine(x, 0, x, textureSize, secondaryGridColor, 0.7);
       } else {
-        color = '#cc33ff'; // Purple on right
+        // Minor grid line
+        drawGridLine(x, 0, x, textureSize, tertiaryGridColor, 0.5);
       }
-      
-      drawGridLine(x, 0, x, textureSize, color);
+    }
+    
+    // Draw occasional coordinate markings (like a tactical map)
+    ctx.font = '8px monospace';
+    ctx.fillStyle = 'rgba(60, 160, 120, 0.5)';
+    
+    for (let i = 0; i <= resolution; i += 8) {
+      for (let j = 0; j <= resolution; j += 8) {
+        const x = i * cellSize;
+        const y = j * cellSize;
+        
+        // Add coordinate text at intersections of major grid lines
+        if (i > 0 && j > 0) {
+          const coordText = `${String.fromCharCode(65 + (i % 26))}-${j / 8}`;
+          ctx.fillText(coordText, x + 2, y - 2);
+        }
+      }
     }
     
     // Create texture from canvas
@@ -768,7 +826,7 @@ class GameEngine {
     return texture;
   }
   
-  // Create metalness map for reflective grid squares
+  // Create metalness map for tactical look with minimal reflective surfaces
   createMetalnessMap(resolution) {
     const textureSize = 1024;
     const canvas = document.createElement('canvas');
@@ -783,17 +841,38 @@ class GameEngine {
     // Calculate grid cell size
     const cellSize = textureSize / resolution;
     
-    // Make random grid cells metallic (white)
-    ctx.fillStyle = '#ffffff';
+    // Add very few slightly reflective areas (equipment, water features, etc.)
+    ctx.fillStyle = '#777777'; // Medium gray for less reflectivity
     
+    // Add occasional metallic surfaces with patterns that look intentional/tactical
     for (let y = 0; y < resolution; y++) {
       for (let x = 0; x < resolution; x++) {
-        // Make cells metallic with 30% probability, but not in the middle area
-        if (Math.random() < 0.3 && (x < resolution * 0.3 || x > resolution * 0.7)) {
-          ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+        // Make cells slightly reflective with just 5% probability
+        // Cluster them together to look like intentional features
+        if ((x + y) % 17 === 0 && Math.random() < 0.5) {
+          // Create a small cluster
+          const clusterSize = Math.floor(Math.random() * 2) + 1;
+          
+          // Draw a small group of reflective cells
+          for (let cx = 0; cx < clusterSize; cx++) {
+            for (let cy = 0; cy < clusterSize; cy++) {
+              const nx = x + cx;
+              const ny = y + cy;
+              
+              if (nx < resolution && ny < resolution) {
+                // Add some variation to reflection
+                const alpha = 0.5 + Math.random() * 0.3;
+                ctx.globalAlpha = alpha;
+                ctx.fillRect(nx * cellSize, ny * cellSize, cellSize, cellSize);
+              }
+            }
+          }
         }
       }
     }
+    
+    // Reset alpha
+    ctx.globalAlpha = 1.0;
     
     // Create texture from canvas
     const texture = new THREE.CanvasTexture(canvas);
@@ -803,7 +882,7 @@ class GameEngine {
     return texture;
   }
   
-  // Create displacement map for terrain with bumps and texture
+  // Create displacement map for tactical military terrain
   createDisplacementMap(resolution) {
     const textureSize = 1024;
     const canvas = document.createElement('canvas');
@@ -815,51 +894,141 @@ class GameEngine {
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, textureSize, textureSize);
     
-    // Create gradient for sides to be higher
+    // Create gradient for terrain elevation - more realistic
     const gradient = ctx.createLinearGradient(0, 0, textureSize, 0);
     gradient.addColorStop(0, '#ffffff'); // High on the left
-    gradient.addColorStop(0.3, '#111111'); // Lower in the middle (30%)
-    gradient.addColorStop(0.7, '#111111'); // Lower in the middle (70%)
+    gradient.addColorStop(0.25, '#333333'); // More gradual slope
+    gradient.addColorStop(0.35, '#222222'); // Plateau transition
+    gradient.addColorStop(0.5, '#111111'); // Lower in the middle
+    gradient.addColorStop(0.65, '#222222'); // Plateau transition
+    gradient.addColorStop(0.75, '#333333'); // More gradual slope
     gradient.addColorStop(1, '#ffffff'); // High on the right
     
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, textureSize, textureSize);
     
-    // Add random mountains and bumps
+    // Add strategic terrain features - more organized and realistic
     const cellSize = textureSize / resolution;
-    const noiseScale = 0.05; // Scale of the noise
     
-    // Add terrain features
-    for (let y = 0; y < resolution; y++) {
-      for (let x = 0; x < resolution; x++) {
-        // Skip the middle path for a flat runway
+    // Create strategic mountain ranges and hills for tactical landscape
+    for (let range = 0; range < 3; range++) {
+      // Create 3 distinct mountain ranges at different positions
+      // Randomize the starting position
+      let startX, startY;
+      let dirX, dirY;
+      
+      // Left/right side ranges
+      if (range === 0) {
+        // Left side mountain range
+        startX = textureSize * 0.1 + Math.random() * textureSize * 0.1;
+        startY = textureSize * 0.2 + Math.random() * textureSize * 0.6;
+        dirX = 0.2;
+        dirY = Math.random() * 2 - 1;
+      } else if (range === 1) {
+        // Right side mountain range
+        startX = textureSize * 0.8 + Math.random() * textureSize * 0.1;
+        startY = textureSize * 0.2 + Math.random() * textureSize * 0.6;
+        dirX = -0.2;
+        dirY = Math.random() * 2 - 1;
+      } else {
+        // Distant background range
+        startX = textureSize * 0.3 + Math.random() * textureSize * 0.4;
+        startY = textureSize * 0.1;
+        dirX = Math.random() * 0.4 - 0.2;
+        dirY = 0.3;
+      }
+      
+      // Add length to range based on position
+      const rangeLength = 10 + Math.floor(Math.random() * 15);
+      
+      // Create the mountain range
+      for (let i = 0; i < rangeLength; i++) {
+        // Skip center channel for clear tactical path
+        const normalizedX = startX / textureSize;
+        if (normalizedX > 0.4 && normalizedX < 0.6) continue;
+        
+        // Create ridgeline mountain
+        const mountainWidth = 20 + Math.random() * 30;
+        const mountainHeight = 80 + Math.random() * 120;
+        
+        // Draw mountain ridge with elongated shape
+        ctx.fillStyle = `rgba(255, 255, 255, ${mountainHeight/255})`;
+        
+        // Draw elongated ellipse for ridge
+        ctx.beginPath();
+        ctx.ellipse(
+          startX, startY,
+          mountainWidth, mountainWidth * 0.5,
+          Math.atan2(dirY, dirX),
+          0, Math.PI * 2
+        );
+        ctx.fill();
+        
+        // Move position along range direction
+        startX += dirX * (30 + Math.random() * 15);
+        startY += dirY * (30 + Math.random() * 15);
+        
+        // Slight random direction change
+        dirX += (Math.random() * 0.2 - 0.1);
+        dirY += (Math.random() * 0.2 - 0.1);
+        
+        // Normalize direction
+        const len = Math.sqrt(dirX * dirX + dirY * dirY);
+        dirX /= len;
+        dirY /= len;
+      }
+    }
+    
+    // Add tactical mounds, craters and terrain irregularities
+    for (let y = 0; y < resolution; y += 2) {
+      for (let x = 0; x < resolution; x += 2) {
+        // Skip the middle path for a tactical corridor
         if (x > resolution * 0.4 && x < resolution * 0.6) continue;
         
-        // Generate mountain ranges on sides
-        const distanceFromCenter = Math.abs(x - resolution/2) / (resolution/2);
-        const mountainProbability = Math.pow(distanceFromCenter, 1.5) * 0.7;
-        
-        if (Math.random() < mountainProbability) {
-          // Create a mountain
-          const mountainSize = 2 + Math.floor(Math.random() * 3);
-          const height = 100 + Math.random() * 155;
+        // More sparse, deliberate terrain features
+        if (Math.random() < 0.05) {
+          // Size of feature correlates to distance from center
+          const distanceFromCenter = Math.abs(x - resolution/2) / (resolution/2);
+          const featureSize = 1 + Math.floor(Math.random() * 4 * distanceFromCenter);
           
-          // Draw mountain using radial gradient
+          // Height is higher further from center 
+          const baseHeight = 50 + 100 * distanceFromCenter;
+          const height = baseHeight + Math.random() * 50;
+          
+          // Draw terrain feature
           const centerX = x * cellSize + cellSize/2;
           const centerY = y * cellSize + cellSize/2;
-          const radius = mountainSize * cellSize;
+          const radius = featureSize * cellSize;
           
-          const mountainGradient = ctx.createRadialGradient(
-            centerX, centerY, 0,
-            centerX, centerY, radius
-          );
+          // 20% chance for crater instead of hill
+          if (Math.random() < 0.2) {
+            // Create crater (depression)
+            const craterGradient = ctx.createRadialGradient(
+              centerX, centerY, 0,
+              centerX, centerY, radius
+            );
+            
+            craterGradient.addColorStop(0, 'rgba(0, 0, 0, 0.8)');
+            craterGradient.addColorStop(0.4, 'rgba(40, 40, 40, 0.5)');
+            craterGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            
+            ctx.globalCompositeOperation = 'multiply';
+            ctx.fillStyle = craterGradient;
+          } else {
+            // Create hill or ridge
+            const hillGradient = ctx.createRadialGradient(
+              centerX, centerY, 0,
+              centerX, centerY, radius
+            );
+            
+            hillGradient.addColorStop(0, `rgba(255, 255, 255, ${height/255})`);
+            hillGradient.addColorStop(0.7, 'rgba(100, 100, 100, 0.2)');
+            hillGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.fillStyle = hillGradient;
+          }
           
-          // Create peaked mountain shape
-          mountainGradient.addColorStop(0, `rgba(255, 255, 255, ${height/255})`);
-          mountainGradient.addColorStop(0.7, 'rgba(50, 50, 50, 0.2)');
-          mountainGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-          
-          ctx.fillStyle = mountainGradient;
           ctx.beginPath();
           ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
           ctx.fill();
@@ -867,26 +1036,25 @@ class GameEngine {
       }
     }
     
-    // Add small bumps throughout the terrain for texture
-    for (let i = 0; i < textureSize * 0.2; i++) {
+    // Reset composite operation
+    ctx.globalCompositeOperation = 'source-over';
+    
+    // Add fine texture details - small terrain roughness
+    for (let i = 0; i < textureSize * 0.05; i++) {
       const x = Math.random() * textureSize;
       const y = Math.random() * textureSize;
-      const size = 2 + Math.random() * 10;
       
-      // Don't add bumps in the center path
+      // Don't add texture in center corridor
       const normalizedX = x / textureSize;
       if (normalizedX > 0.4 && normalizedX < 0.6) continue;
       
-      // Create small bump
-      const bumpGradient = ctx.createRadialGradient(
-        x, y, 0,
-        x, y, size
-      );
+      const size = 1 + Math.random() * 3; // Much smaller bumps
       
-      bumpGradient.addColorStop(0, 'rgba(200, 200, 200, 0.3)');
-      bumpGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      // Draw small terrain irregularities
+      ctx.fillStyle = Math.random() < 0.5 ? 
+        'rgba(180, 180, 180, 0.1)' : // Small mounds
+        'rgba(30, 30, 30, 0.1)';     // Small depressions
       
-      ctx.fillStyle = bumpGradient;
       ctx.beginPath();
       ctx.arc(x, y, size, 0, Math.PI * 2);
       ctx.fill();
