@@ -96,24 +96,30 @@ function initMapLayerToggles() {
   
   mapToggles.forEach(toggle => {
     toggle.addEventListener('click', () => {
-      // Get all toggles in the same group
-      const allToggles = document.querySelectorAll('.map-toggle');
+      const layer = toggle.dataset.layer;
+      console.log(`Map toggle clicked: ${layer}`);
       
-      // Check if this is already active (for toggle functionality)
-      const wasActive = toggle.classList.contains('active');
+      // Simplify: Always treat clicks as turning the layer on
+      // First, remove 'active' class from all map toggles
+      document.querySelectorAll('.map-toggle').forEach(t => {
+        t.classList.remove('active');
+        console.log(`Removed active class from ${t.dataset.layer}`);
+      });
       
-      // Remove active class from all toggles
-      allToggles.forEach(t => t.classList.remove('active'));
-      
-      // If it wasn't already active, make it active now
-      if (!wasActive) {
-        toggle.classList.add('active');
-      }
+      // Then, add 'active' class to the clicked toggle
+      toggle.classList.add('active');
+      console.log(`Added active class to ${layer}`);
       
       // Update the tactical map when layers change
       updateTacticalMap(window.gameState, window.assets || []);
     });
   });
+  
+  // Ensure initial state - for safety, make sure Terrain is active by default
+  const terrainToggle = document.querySelector('.map-toggle[data-layer="terrain"]');
+  if (terrainToggle) {
+    terrainToggle.classList.add('active');
+  }
 }
 
 // Initialize panel dragging

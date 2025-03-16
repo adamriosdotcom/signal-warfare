@@ -497,6 +497,9 @@ input:focus, textarea:focus, select:focus {
 .map-toggle.active {
   background-color: var(--alert-green-dark);
   color: var(--text-bright);
+  border-color: var(--alert-green);
+  box-shadow: 0 0 5px rgba(54, 249, 179, 0.4);
+  font-weight: 600;
 }
 
 #spectrum-display {
