@@ -359,7 +359,15 @@ class GameEngine {
     const jammerButtons = document.querySelectorAll('.jammer-button');
     jammerButtons.forEach(button => {
       button.addEventListener('click', () => {
-        const type = button.id.split('-')[0].toUpperCase();
+        // Map short button ID to full jammer type name
+        const buttonId = button.id.split('-')[0].toUpperCase();
+        const jammerTypeMap = {
+          'STD': 'STANDARD',
+          'DIR': 'PRECISION',
+          'PLS': 'PULSE',
+          'MOB': 'MOBILE'
+        };
+        const type = jammerTypeMap[buttonId] || buttonId;
         this.startJammerPlacement(type);
       });
     });
@@ -587,7 +595,22 @@ class GameEngine {
       button.classList.remove('selected');
     });
     
-    document.getElementById(`${type.toLowerCase()}-jammer`).classList.add('selected');
+    // Map full jammer type back to button ID
+    const reverseTypeMap = {
+      'STANDARD': 'std',
+      'PRECISION': 'dir',
+      'PULSE': 'pls',
+      'MOBILE': 'mob'
+    };
+    
+    const buttonId = reverseTypeMap[type] || type.toLowerCase();
+    const buttonElement = document.getElementById(`${buttonId}-jammer`);
+    
+    if (buttonElement) {
+      buttonElement.classList.add('selected');
+    } else {
+      console.warn(`Button element not found for jammer type: ${type}`);
+    }
     
     // Create temporary visual indicator
     this.placementData = {
@@ -603,8 +626,18 @@ class GameEngine {
     
     this.scene.add(this.placementData.indicator);
     
+    // Get jammer name safely with fallback
+    let jammerName = "Jammer";
+    try {
+      if (CONFIG.jammers.types[type] && CONFIG.jammers.types[type].name) {
+        jammerName = CONFIG.jammers.types[type].name;
+      }
+    } catch (e) {
+      console.error("Error getting jammer name:", e);
+    }
+    
     // Show instructions
-    this.showAlert(`Select position to place ${CONFIG.jammers.types[type].name}`, 'info');
+    this.showAlert(`Select position to place ${jammerName}`, 'info');
   }
   
   // Cancel asset placement
