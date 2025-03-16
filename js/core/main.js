@@ -32,7 +32,8 @@ class GameEngine {
       isDown: false,
       button: -1
     };
-    this.userMoving = false; // Track when the user is actively moving with keyboard
+    this.userHasInteracted = false; // Track if user has ever interacted with controls
+    this.introAnimationActive = true; // Track if intro scrolling animation should be shown
     
     // Game state
     this.ecs = null;
@@ -403,8 +404,11 @@ class GameEngine {
     this.camera.position.copy(this.initialCameraPosition || new THREE.Vector3(0, 5000, 1200));
     this.camera.lookAt(this.initialCameraTarget || new THREE.Vector3(0, 0, -CONFIG.terrain.height * 0.5));
     
-    // Reset movement flag
-    this.userMoving = false;
+    // Only restore intro animation if mission is not active
+    if (!gameState.missionActive) {
+      this.introAnimationActive = true;
+      console.log("Restored intro animation on camera reset");
+    }
     
     console.log("Camera reset to vaporwave view position");
   }
@@ -439,15 +443,6 @@ class GameEngine {
     
     window.addEventListener('keyup', (event) => {
       this.keys[event.key] = false;
-      
-      // Check if any movement keys are still pressed
-      const anyMovementKeyPressed = ['w', 'a', 's', 'd', 'q', 'e', 'z', 'x', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']
-        .some(key => this.keys[key]);
-      
-      // If no movement keys are pressed, reset the userMoving flag
-      if (!anyMovementKeyPressed) {
-        this.userMoving = false;
-      }
     });
     
     // Mouse input
@@ -456,6 +451,14 @@ class GameEngine {
     canvas.addEventListener('mousedown', (event) => {
       this.mouse.isDown = true;
       this.mouse.button = event.button;
+      
+      // Once user interacts with mouse, stop intro animation permanently
+      if (this.introAnimationActive) {
+        this.introAnimationActive = false;
+        console.log("User has taken control, stopping intro animation");
+      }
+      this.userHasInteracted = true;
+      
       this.handleMouseDown(event);
     });
     
@@ -2624,10 +2627,15 @@ class GameEngine {
     const TERRAIN_HEIGHT = -1000; // Position of terrain in Y coordinate
     const SAFE_DISTANCE = MIN_CAMERA_HEIGHT - TERRAIN_HEIGHT; // Safety margin
     
-    // Check if this is a movement or rotation key, and set userMoving flag
+    // Check if this is a movement or rotation key, and disable intro animation
     const movementKeys = ['w', 'a', 's', 'd', 'q', 'e', 'z', 'x', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
     if (movementKeys.includes(key)) {
-      this.userMoving = true;
+      // Once user starts moving, stop intro animation permanently
+      if (this.introAnimationActive) {
+        this.introAnimationActive = false;
+        console.log("User has taken control, stopping intro animation");
+      }
+      this.userHasInteracted = true;
     }
     
     // WASD movement (translation)
@@ -2767,6 +2775,9 @@ class GameEngine {
     // Start mission with 'M' key
     else if (key === 'm' || key === 'M') {
       if (!gameState.missionActive) {
+        // Stop intro animation when mission starts
+        this.introAnimationActive = false;
+        
         gameState.startMission();
         this.showAlert('Mission initiated. Deploying assets and beginning deployment phase.', 'success');
         // Create a deployment effect
@@ -3181,16 +3192,16 @@ class GameEngine {
       }
     });
     
-    // Update vaporwave terrain animation only when mission is not active and user is not manually moving
-    if (this.terrain && this.terrain2 && this.terrainHeight && !gameState.missionActive && !this.userMoving) {
+    // Update vaporwave terrain animation only during intro before user interaction
+    if (this.terrain && this.terrain2 && this.terrainHeight && this.introAnimationActive) {
       const speed = 0.04; // Slightly slower for smoother effect with larger terrain
       
       // When the first terrain reaches the end, reset it
       this.terrain.position.z = (elapsedTime * this.terrainHeight * speed) % this.terrainHeight;
       // Position the second terrain behind the first
       this.terrain2.position.z = ((elapsedTime * this.terrainHeight * speed) % this.terrainHeight) - this.terrainHeight;
-    } else if (this.terrain && this.terrain2 && (gameState.missionActive || this.userMoving)) {
-      // Stop terrain at fixed positions when game starts or user is controlling movement
+    } else if (this.terrain && this.terrain2) {
+      // Stop terrain at fixed positions after user interaction or when mission is active
       this.terrain.position.z = 0;
       this.terrain2.position.z = -this.terrainHeight;
     }
