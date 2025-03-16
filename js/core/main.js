@@ -87,7 +87,7 @@ class GameEngine {
       75, window.innerWidth / window.innerHeight, 0.1, 30000 // Higher FOV for vaporwave style
     );
     // Position camera at maximum height for best tactical overview
-    this.camera.position.set(0, 3000, 1200); // Much higher above ground for a superior tactical view
+    this.camera.position.set(0, 5000, 1200); // Higher above ground for a superior tactical view
     this.camera.lookAt(0, 0, -CONFIG.terrain.height * 0.5); // Look ahead down the grid
     
     // Store initial camera state for orbital controls
@@ -208,8 +208,8 @@ class GameEngine {
         this.controls.rotateSpeed = 0.5;
         this.controls.panSpeed = 0.8;
         this.controls.zoomSpeed = 1.2;
-        this.controls.minDistance = 100;
-        this.controls.maxDistance = 5000;
+        this.controls.minDistance = 1000;
+        this.controls.maxDistance = 20000;
         
         // Add controls to visualization objects for updates
         this.visualizationObjects.set('orbitControls', {
@@ -399,7 +399,7 @@ class GameEngine {
     }
     
     // Reset position directly if needed - use maximum height camera position
-    this.camera.position.copy(this.initialCameraPosition || new THREE.Vector3(0, 3000, 1200));
+    this.camera.position.copy(this.initialCameraPosition || new THREE.Vector3(0, 5000, 1200));
     this.camera.lookAt(this.initialCameraTarget || new THREE.Vector3(0, 0, -CONFIG.terrain.height * 0.5));
     
     console.log("Camera reset to vaporwave view position");
@@ -587,14 +587,14 @@ class GameEngine {
     // Create primary terrain mesh
     this.terrain = new THREE.Mesh(geometry, material);
     this.terrain.rotation.x = -Math.PI / 2; // Rotate to face up
-    this.terrain.position.y = -200; // Much lower position to ensure it's well below camera
+    this.terrain.position.y = -1000; // Much lower position to ensure it's well below camera
     this.terrain.position.z = 0;
     this.terrain.receiveShadow = true;
     
     // Create second terrain for infinite scrolling effect
     this.terrain2 = new THREE.Mesh(geometry, material);
     this.terrain2.rotation.x = -Math.PI / 2;
-    this.terrain2.position.y = -200; // Same much lower position as first terrain
+    this.terrain2.position.y = -1000; // Same much lower position as first terrain
     this.terrain2.position.z = -this.terrainHeight; // Position behind first terrain
     this.terrain2.receiveShadow = true;
     
@@ -2611,9 +2611,16 @@ class GameEngine {
       this.camera.position.y += moveSpeed;
       if (this.cameraState) this.cameraState.target.y += moveSpeed;
     } else if (key === 's') {
-      // Move backward
-      this.camera.position.y -= moveSpeed;
-      if (this.cameraState) this.cameraState.target.y -= moveSpeed;
+      // Move backward (with minimum height check to prevent going underground)
+      const MIN_CAMERA_HEIGHT = 1000; // Minimum safe height to prevent going underground
+      const TERRAIN_HEIGHT = -1000; // Position of terrain in Y coordinate
+      const SAFE_DISTANCE = MIN_CAMERA_HEIGHT - TERRAIN_HEIGHT; // Safety margin
+      
+      // Only move down if we're above the minimum height from terrain
+      if (this.camera.position.y > TERRAIN_HEIGHT + SAFE_DISTANCE) {
+        this.camera.position.y -= moveSpeed;
+        if (this.cameraState) this.cameraState.target.y -= moveSpeed;
+      }
     } else if (key === 'a') {
       // Move left
       this.camera.position.x -= moveSpeed;
