@@ -16,6 +16,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize asset panel tabs
   initAssetPanelTabs();
   
+  // Initialize jammer selection cards
+  initJammerCards();
+  
   // Initialize map layer toggles
   initMapLayerToggles();
   
@@ -37,12 +40,32 @@ document.addEventListener('DOMContentLoaded', () => {
   // Set up animation loop for tactical map (slower refresh rate)
   animateTacticalMap();
   
-  // Store game engine reference when it's available
+  // Store game engine reference and set up event listeners when it's available
   const storeGameEngineRef = setInterval(() => {
-    if (window.gameEngine) {
+    if (window.gameEngine && window.gameState) {
       // Save global reference for map access
       clearInterval(storeGameEngineRef);
       console.log('Game engine reference acquired for tactical map');
+      
+      // Initial update of jammer availability
+      if (window.gameState.playerAssets && window.gameState.playerAssets.jammers) {
+        updateJammerAvailability(window.gameState.playerAssets.jammers.available);
+      }
+      
+      // Set up event listeners for jammer-related events
+      window.gameState.addEventListener('jammerCreated', () => {
+        updateJammerAvailability(window.gameState.playerAssets.jammers.available);
+      });
+      
+      window.gameState.addEventListener('jammerRemoved', () => {
+        updateJammerAvailability(window.gameState.playerAssets.jammers.available);
+      });
+      
+      // Update status after successful jammer placement
+      const jammerStatusElement = document.getElementById('jammer-status');
+      if (jammerStatusElement) {
+        jammerStatusElement.textContent = "READY";
+      }
     }
   }, 1000);
   
@@ -72,9 +95,39 @@ function initMinimizeButtons() {
 }
 
 // Initialize asset panel tabs
+// Initialize asset panel tabs and content switching
 function initAssetPanelTabs() {
   const assetTabs = document.querySelectorAll('.asset-tab');
   
+  // Get content sections
+  const contentSections = {
+    jammers: document.getElementById('jammers-content'),
+    drones: document.getElementById('drones-content'),
+    sensors: document.getElementById('sensors-content')
+  };
+  
+  // Hide all content sections except active one
+  function updateContentVisibility(activeTab) {
+    const activeContent = activeTab.dataset.tab;
+    
+    // Hide all sections
+    Object.values(contentSections).forEach(section => {
+      if (section) section.style.display = 'none';
+    });
+    
+    // Show active section
+    if (contentSections[activeContent]) {
+      contentSections[activeContent].style.display = 'block';
+    }
+  }
+  
+  // Initialize with first tab active
+  const initialActiveTab = document.querySelector('.asset-tab.active');
+  if (initialActiveTab) {
+    updateContentVisibility(initialActiveTab);
+  }
+  
+  // Set up click handlers
   assetTabs.forEach(tab => {
     tab.addEventListener('click', () => {
       // Remove active class from all tabs
@@ -83,12 +136,120 @@ function initAssetPanelTabs() {
       // Add active class to clicked tab
       tab.classList.add('active');
       
-      // Show the corresponding content (placeholder for now)
-      // In the future, we'll show/hide different content sections based on the tab
+      // Update content visibility
+      updateContentVisibility(tab);
+      
+      // Log selection
       console.log(`Selected tab: ${tab.dataset.tab}`);
     });
   });
 }
+
+// Initialize jammer selection cards
+function initJammerCards() {
+  const jammerCards = document.querySelectorAll('.jammer-card');
+  
+  jammerCards.forEach(card => {
+    card.addEventListener('click', () => {
+      // Get jammer type
+      const jammerType = card.dataset.type;
+      
+      // Check if card is available
+      if (card.classList.contains('unavailable')) {
+        showAlert(`No ${jammerType} jammers available`, 'warning');
+        return;
+      }
+      
+      // Remove selected class from all cards
+      document.querySelectorAll('.jammer-card').forEach(c => c.classList.remove('selected'));
+      
+      // Add selected class to clicked card
+      card.classList.add('selected');
+      
+      // If gameEngine exists, start jammer placement
+      if (window.gameEngine) {
+        window.gameEngine.startJammerPlacement(jammerType);
+      } else {
+        console.error('Game engine not available');
+      }
+    });
+  });
+  
+  // Initialize jammer placement help visibility
+  const placementHelp = document.getElementById('jammer-placement-help');
+  if (placementHelp) {
+    placementHelp.classList.remove('active');
+  }
+  
+  // Set up cancel placement button
+  const cancelButton = document.getElementById('cancel-placement');
+  if (cancelButton) {
+    cancelButton.addEventListener('click', () => {
+      if (window.gameEngine) {
+        window.gameEngine.cancelAssetPlacement();
+      }
+    });
+  }
+  
+  // Set up clear jammers button
+  const clearButton = document.getElementById('clear-jammers');
+  if (clearButton) {
+    clearButton.addEventListener('click', () => {
+      if (window.gameEngine) {
+        // Add confirmation dialog
+        if (confirm('Are you sure you want to remove all jammers?')) {
+          window.gameEngine.clearAllJammers();
+        }
+      }
+    });
+  }
+}
+
+// Update jammer availability UI
+function updateJammerAvailability(jammersAvailable) {
+  if (!jammersAvailable) return;
+  
+  // Get total jammers count
+  let totalJammers = 0;
+  let deployedJammers = 0;
+  
+  // Update each jammer type count
+  Object.entries(jammersAvailable).forEach(([type, count]) => {
+    // Update card count
+    const card = document.querySelector(`.jammer-card[data-type="${type}"]`);
+    if (card) {
+      const countElement = card.querySelector('.jammer-count');
+      if (countElement) {
+        countElement.textContent = count;
+      }
+      
+      // Add unavailable class if count is 0
+      if (count <= 0) {
+        card.classList.add('unavailable');
+      } else {
+        card.classList.remove('unavailable');
+      }
+    }
+    
+    // Sum for total count
+    totalJammers += COUNT_MAP[type] || 0;
+    deployedJammers += (COUNT_MAP[type] || 0) - count;
+  });
+  
+  // Update deployed jammers count
+  const deployedElement = document.getElementById('deployed-jammers');
+  if (deployedElement) {
+    deployedElement.textContent = `${deployedJammers}/${totalJammers}`;
+  }
+}
+
+// Constants for jammer counts
+const COUNT_MAP = {
+  'STANDARD': 3,
+  'PRECISION': 2,
+  'PULSE': 2,
+  'MOBILE': 1
+};
 
 // Initialize map layer toggles
 function initMapLayerToggles() {

@@ -94,22 +94,54 @@
         <div class="asset-content" id="jammers-content" style="margin: 0; padding: 0; height: auto !important;">
           <div class="status-indicators" style="margin-bottom: 2px;">
             <div class="status-text">
-              <span class="status-label">AVAILABLE:</span>
-              <span class="status-value" id="available-jammers">3</span>
+              <span class="status-label">DEPLOYED:</span>
+              <span class="status-value" id="deployed-jammers">0/8</span>
             </div>
             <div class="status-text">
-              <span class="status-label">COOLDOWN:</span>
-              <span class="status-value" id="cooldown-timer">0s</span>
+              <span class="status-label">STATUS:</span>
+              <span class="status-value" id="jammer-status">READY</span>
             </div>
           </div>
           
-          <div class="jammer-selector" style="margin-bottom: 4px;">
-            <div class="selector-title" style="margin: 2px 0;">SELECT JAMMER TYPE:</div>
-            <div class="jammer-buttons" style="margin: 2px 0;">
-              <button id="std-jammer" class="jammer-button">STD</button>
-              <button id="dir-jammer" class="jammer-button">DIR</button>
-              <button id="pls-jammer" class="jammer-button">PLS</button>
-              <button id="mob-jammer" class="jammer-button">MOB</button>
+          <div class="jammer-selector">
+            <div class="jammer-cards" id="jammer-options">
+              <!-- Jammer cards will be populated by JavaScript -->
+              <div class="jammer-card" data-type="STANDARD">
+                <div class="jammer-icon standard"></div>
+                <div class="jammer-label">
+                  <span class="jammer-name">STANDARD</span>
+                  <span class="jammer-count">3</span>
+                </div>
+              </div>
+              <div class="jammer-card" data-type="PRECISION">
+                <div class="jammer-icon precision"></div>
+                <div class="jammer-label">
+                  <span class="jammer-name">PRECISION</span>
+                  <span class="jammer-count">2</span>
+                </div>
+              </div>
+              <div class="jammer-card" data-type="PULSE">
+                <div class="jammer-icon pulse"></div>
+                <div class="jammer-label">
+                  <span class="jammer-name">PULSE</span>
+                  <span class="jammer-count">2</span>
+                </div>
+              </div>
+              <div class="jammer-card" data-type="MOBILE">
+                <div class="jammer-icon mobile"></div>
+                <div class="jammer-label">
+                  <span class="jammer-name">MOBILE</span>
+                  <span class="jammer-count">1</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="jammer-placement-help" id="jammer-placement-help">
+            <div class="placement-hint">Click on the tactical map to place jammer</div>
+            <div class="placement-indicators">
+              <div class="placement-indicator valid">✓ Valid placement</div>
+              <div class="placement-indicator invalid">✗ Invalid placement</div>
             </div>
           </div>
           
