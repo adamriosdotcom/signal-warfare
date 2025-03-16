@@ -19,6 +19,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize map layer toggles
   initMapLayerToggles();
   
+  // Initialize map controls (zoom and pan)
+  initMapControls();
+  
   // Initialize panel dragging
   initPanelDragging();
   
@@ -33,6 +36,15 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Set up animation loop for tactical map (slower refresh rate)
   animateTacticalMap();
+  
+  // Store game engine reference when it's available
+  const storeGameEngineRef = setInterval(() => {
+    if (window.gameEngine) {
+      // Save global reference for map access
+      clearInterval(storeGameEngineRef);
+      console.log('Game engine reference acquired for tactical map');
+    }
+  }, 1000);
   
   // Handle window resize
   window.addEventListener('resize', () => {
@@ -177,6 +189,10 @@ const tacticalMapCache = {
   lastHeight: 0
 };
 
+// Global variables for map view center and scale
+let mapViewCenter = { x: 0, y: 0 }; // Center position of tactical map view (in world coordinates)
+let mapViewScale = 1.0; // Scale factor for the tactical map view (1.0 = whole map)
+
 // Update tactical map
 function updateTacticalMap(gameState = {}, assets = []) {
   const mapContainer = document.getElementById('map-container');
@@ -203,6 +219,19 @@ function updateTacticalMap(gameState = {}, assets = []) {
   // Draw background
   drawMapBackground(ctx, width, height);
   
+  // Update map view center based on camera position from global game engine
+  if (window.gameEngine && window.gameEngine.camera) {
+    // Update map center from camera position
+    mapViewCenter.x = window.gameEngine.camera.position.x;
+    mapViewCenter.y = window.gameEngine.camera.position.y;
+  }
+  
+  // Save context for transformations
+  ctx.save();
+  
+  // Apply transformations for map view
+  applyMapViewTransform(ctx, width, height, mapViewCenter, mapViewScale);
+  
   // Draw terrain if active
   if (showTerrain) {
     drawTerrainLayer(ctx, width, height);
@@ -224,8 +253,17 @@ function updateTacticalMap(gameState = {}, assets = []) {
   // Draw grid overlay
   drawGridOverlay(ctx, width, height);
   
-  // Draw coordinates and scale indicator
-  drawCoordinatesAndScale(ctx, width, height);
+  // Draw camera view indicator (shows where player is looking)
+  drawCameraViewIndicator(ctx, width, height);
+  
+  // Restore context after transformations
+  ctx.restore();
+  
+  // Draw coordinates and scale indicator (in screen space, not world space)
+  drawCoordinatesAndScale(ctx, width, height, mapViewCenter);
+  
+  // Draw controls for map
+  drawMapControls(ctx, width, height);
 }
 
 // Draw the map background
@@ -240,27 +278,36 @@ function drawMapBackground(ctx, width, height) {
 
 // Draw terrain features
 function drawTerrainLayer(ctx, width, height) {
-  // Check if we can use cached terrain
-  if (tacticalMapCache.terrainGrid && 
-      tacticalMapCache.lastWidth === width && 
-      tacticalMapCache.lastHeight === height) {
-    ctx.putImageData(tacticalMapCache.terrainGrid, 0, 0);
-    return;
-  }
+  // No caching with transformed terrain - we need to draw based on current view
+
+  // Determine visible area bounds in world coordinates
+  const visibleWidth = width / mapViewScale;
+  const visibleHeight = height / mapViewScale;
   
-  // Generate terrain features
-  // Use perlin-like noise for terrain elevation
-  const resolution = 60; // Number of grid cells
-  const cellSizeX = width / resolution;
-  const cellSizeY = height / resolution;
+  // Calculate grid start and end points
+  const startX = mapViewCenter.x - visibleWidth/2;
+  const endX = mapViewCenter.x + visibleWidth/2;
+  const startY = mapViewCenter.y - visibleHeight/2;
+  const endY = mapViewCenter.y + visibleHeight/2;
   
-  // Draw terrain elevation using a heatmap style
-  for (let x = 0; x < resolution; x++) {
-    for (let y = 0; y < resolution; y++) {
-      // Calculate noise value (simplified perlin-like noise)
-      const noiseX = x / resolution;
-      const noiseY = y / resolution;
-      const elevation = simplexNoise(noiseX * 5, noiseY * 5);
+  // Calculate noise resolution - higher resolution at higher zoom levels
+  const baseResolution = 50;
+  const resolution = Math.min(120, Math.max(40, baseResolution * mapViewScale));
+  
+  // Size of each terrain cell in world units
+  const cellSizeX = visibleWidth / resolution;
+  const cellSizeY = visibleHeight / resolution;
+  
+  // Draw terrain cells
+  for (let i = 0; i < resolution; i++) {
+    for (let j = 0; j < resolution; j++) {
+      // Calculate world position for this cell
+      const worldX = startX + i * cellSizeX;
+      const worldY = startY + j * cellSizeY;
+      
+      // Use noise function based on world coordinates for consistent terrain
+      const noiseFreq = 0.001; // Frequency factor for noise
+      const elevation = simplexNoise(worldX * noiseFreq, worldY * noiseFreq);
       
       // Assign terrain type based on elevation
       let color;
@@ -292,30 +339,34 @@ function drawTerrainLayer(ctx, width, height) {
         alpha = 0.75;
       }
       
-      // Draw the cell
+      // Draw the terrain cell
       ctx.fillStyle = color;
       ctx.globalAlpha = alpha;
-      ctx.fillRect(x * cellSizeX, y * cellSizeY, cellSizeX, cellSizeY);
+      ctx.fillRect(
+        worldX, worldY, 
+        cellSizeX + 1, // +1 to avoid gaps between cells
+        cellSizeY + 1
+      );
     }
   }
   
   // Reset alpha
   ctx.globalAlpha = 1.0;
   
-  // Add some geographic features
-  
-  // Rivers (simplified)
-  ctx.strokeStyle = '#1a66a0';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  
-  // Main river path
+  // Draw major geographic features (in world coordinates)
+
+  // Predefined river path in world coordinates
   const riverPoints = [
-    { x: width * 0.1, y: height * 0.2 },
-    { x: width * 0.3, y: height * 0.3 },
-    { x: width * 0.5, y: height * 0.5 },
-    { x: width * 0.6, y: height * 0.8 }
+    { x: -CONFIG.terrain.width * 0.3, y: -CONFIG.terrain.height * 0.2 },
+    { x: -CONFIG.terrain.width * 0.1, y: -CONFIG.terrain.height * 0.1 },
+    { x: CONFIG.terrain.width * 0.1, y: CONFIG.terrain.height * 0.1 },
+    { x: CONFIG.terrain.width * 0.25, y: CONFIG.terrain.height * 0.3 }
   ];
+  
+  // Draw river
+  ctx.strokeStyle = '#1a66a0';
+  ctx.lineWidth = 15; // Thicker river in world units
+  ctx.beginPath();
   
   ctx.moveTo(riverPoints[0].x, riverPoints[0].y);
   
@@ -326,29 +377,31 @@ function drawTerrainLayer(ctx, width, height) {
     ctx.quadraticCurveTo(riverPoints[i].x, riverPoints[i].y, xMid, yMid);
   }
   
-  ctx.quadraticCurveTo(
-    riverPoints[riverPoints.length-1].x,
-    riverPoints[riverPoints.length-1].y,
-    width * 0.7,
-    height * 0.9
-  );
-  
   // Draw river with glow effect
   ctx.shadowColor = '#1a66a0';
-  ctx.shadowBlur = 4;
+  ctx.shadowBlur = 10;
   ctx.stroke();
   ctx.shadowBlur = 0;
   
-  // Add a lake
-  ctx.fillStyle = '#1a66a0';
-  ctx.beginPath();
-  ctx.ellipse(width * 0.4, height * 0.4, width * 0.05, height * 0.04, 0, 0, Math.PI * 2);
-  ctx.fill();
+  // Add lakes in world coordinates
+  const lakes = [
+    { x: CONFIG.terrain.width * 0, y: CONFIG.terrain.height * -0.1, radiusX: 300, radiusY: 200 },
+    { x: CONFIG.terrain.width * -0.25, y: CONFIG.terrain.height * 0.2, radiusX: 400, radiusY: 300 }
+  ];
   
-  // Cache the terrain
-  tacticalMapCache.terrainGrid = ctx.getImageData(0, 0, width, height);
-  tacticalMapCache.lastWidth = width;
-  tacticalMapCache.lastHeight = height;
+  lakes.forEach(lake => {
+    ctx.fillStyle = '#1a66a0';
+    ctx.beginPath();
+    ctx.ellipse(lake.x, lake.y, lake.radiusX, lake.radiusY, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Add a subtle shore effect
+    ctx.strokeStyle = '#1c7cb9';
+    ctx.lineWidth = 20;
+    ctx.globalAlpha = 0.3;
+    ctx.stroke();
+    ctx.globalAlpha = 1.0;
+  });
 }
 
 // Draw RF signal propagation visualization
@@ -360,13 +413,14 @@ function drawRFLayer(ctx, width, height, assets) {
   
   // Draw RF coverage for each jammer
   jammers.forEach(jammer => {
-    // Draw coverage circle
-    const x = width * (jammer.position.x / CONFIG.terrain.width + 0.5);
-    const y = height * (jammer.position.z / CONFIG.terrain.height + 0.5);
+    // Get jammer position in world coordinates
+    // With the map transformation, we can now use the world coordinates directly
+    const x = jammer.position.x;
+    const y = jammer.position.z; // Using z as the ground plane coordinate
     
-    // Define radius based on jammer power
+    // Define radius based on jammer power - now in actual world units
     const power = jammer.power || 30; // Default power if not specified
-    const radius = Math.min(width, height) * (power / 100);
+    const radius = power * 20; // Scale factor to get realistic coverage radius
     
     // Create gradient for signal strength
     const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
@@ -382,13 +436,29 @@ function drawRFLayer(ctx, width, height, assets) {
     
     // Draw directional pattern if appropriate
     if (jammer.antennaType === 'directional' && jammer.heading !== undefined) {
+      // Convert heading to radians if needed
+      const headingRad = typeof jammer.heading === 'number' ? jammer.heading : 
+                        (jammer.heading * Math.PI / 180);
+      
       // Draw directive pattern
       ctx.fillStyle = 'rgba(255, 222, 89, 0.15)';
       ctx.beginPath();
-      ctx.arc(x, y, radius * 0.7, jammer.heading - Math.PI/4, jammer.heading + Math.PI/4);
+      ctx.moveTo(x, y);
+      ctx.arc(x, y, radius * 0.9, headingRad - Math.PI/4, headingRad + Math.PI/4);
       ctx.lineTo(x, y);
       ctx.closePath();
       ctx.fill();
+      
+      // Add a heading indicator line
+      ctx.strokeStyle = 'rgba(255, 222, 89, 0.4)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(
+        x + Math.cos(headingRad) * (radius * 0.2),
+        y + Math.sin(headingRad) * (radius * 0.2)
+      );
+      ctx.stroke();
     }
   });
 }
@@ -406,15 +476,15 @@ function drawAssets(ctx, width, height, assets) {
   
   // Draw each asset
   assets.forEach(asset => {
-    // Convert world coordinates to map coordinates
-    const x = width * (asset.position.x / CONFIG.terrain.width + 0.5);
-    const y = height * (asset.position.z / CONFIG.terrain.height + 0.5);
+    // Use world coordinates directly with our map transformation
+    const x = asset.position.x;
+    const y = asset.position.z; // Using z as the ground plane coordinate
     
     // Get symbol info
     const symbolInfo = assetSymbols[asset.type] || { symbol: '■', color: '#ffffff', size: 10 };
     
     // Draw symbol
-    ctx.font = `bold ${symbolInfo.size}px var(--font-mono, monospace)`;
+    ctx.font = `bold ${symbolInfo.size * 2}px var(--font-mono, monospace)`; // Make symbol larger for better visibility
     ctx.fillStyle = symbolInfo.color;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -425,47 +495,111 @@ function drawAssets(ctx, width, height, assets) {
     ctx.fillText(symbolInfo.symbol, x, y);
     ctx.shadowBlur = 0;
     
-    // Add label if not too many assets
-    if (assets.length < 10) {
-      ctx.font = `8px var(--font-mono, monospace)`;
-      ctx.fillStyle = 'rgba(255,255,255,0.8)';
-      ctx.fillText(asset.name || asset.type.slice(0,3), x, y + 15);
-    }
+    // Draw base marker circle for visibility
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+    ctx.beginPath();
+    ctx.arc(x, y, 12, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Re-draw symbol on top
+    ctx.fillStyle = symbolInfo.color;
+    ctx.fillText(symbolInfo.symbol, x, y);
+    
+    // Add label 
+    ctx.font = `12px var(--font-mono, monospace)`;
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    ctx.fillText(asset.name || asset.type.slice(0,3), x, y + 25);
     
     // If it's active, add a subtle glowing circle
     if (asset.active) {
+      // Draw glow
       ctx.strokeStyle = symbolInfo.color;
+      ctx.lineWidth = 2;
       ctx.globalAlpha = 0.4;
       ctx.beginPath();
-      ctx.arc(x, y, 10, 0, Math.PI * 2);
+      ctx.arc(x, y, 20, 0, Math.PI * 2);
       ctx.stroke();
+      
+      // Draw animated pulse
+      const pulseSize = 20 + Math.sin(Date.now() / 300) * 5;
+      ctx.globalAlpha = 0.2;
+      ctx.beginPath();
+      ctx.arc(x, y, pulseSize, 0, Math.PI * 2);
+      ctx.stroke();
+      
       ctx.globalAlpha = 1.0;
+    }
+    
+    // For drones, draw altitude indicator
+    if (asset.type === 'DRONE' && asset.position.y > 10) {
+      const altitude = asset.position.y;
+      ctx.font = `10px var(--font-mono, monospace)`;
+      ctx.fillStyle = '#36f9b3';
+      ctx.fillText(`↑${Math.round(altitude)}m`, x, y - 20);
+      
+      // Draw movement vector if available
+      if (asset.velocity) {
+        const speed = Math.sqrt(asset.velocity.x * asset.velocity.x + asset.velocity.z * asset.velocity.z);
+        if (speed > 0.1) {
+          // Draw direction vector
+          const angle = Math.atan2(asset.velocity.z, asset.velocity.x);
+          ctx.strokeStyle = '#36f9b3';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(
+            x + Math.cos(angle) * 30,
+            y + Math.sin(angle) * 30
+          );
+          ctx.stroke();
+        }
+      }
     }
   });
 }
 
 // Draw enemy positions
 function drawEnemyLayer(ctx, width, height, gameState) {
-  // Draw known enemy positions
-  // This would normally come from gameState.enemyPositions or similar
+  // Get enemy positions from gameState if available
+  let enemyPositions = [];
   
-  // For demonstration, add some dummy enemy positions
-  const enemyPositions = [
-    { x: 0.2, y: 0.3, type: 'PATROL' },
-    { x: 0.7, y: 0.2, type: 'DRONE' },
-    { x: 0.8, y: 0.7, type: 'BASE' }
-  ];
+  if (gameState && gameState.enemyPositions) {
+    enemyPositions = gameState.enemyPositions;
+  } else {
+    // For demonstration, add some dummy enemy positions in world coordinates
+    enemyPositions = [
+      { 
+        position: { x: CONFIG.terrain.width * 0.2, y: 10, z: CONFIG.terrain.height * 0.3 },
+        type: 'PATROL' 
+      },
+      { 
+        position: { x: CONFIG.terrain.width * -0.3, y: 50, z: CONFIG.terrain.height * 0.2 },
+        type: 'DRONE'
+      },
+      { 
+        position: { x: CONFIG.terrain.width * 0.1, y: 0, z: CONFIG.terrain.height * -0.3 },
+        type: 'BASE'
+      }
+    ];
+  }
   
-  // Transform to actual coordinates
+  // Draw each enemy position using world coordinates
   enemyPositions.forEach(enemy => {
-    const x = width * enemy.x;
-    const y = height * enemy.y;
+    // Use proper position coordinates or fall back to old format for compatibility
+    const pos = enemy.position || { 
+      x: (enemy.x - 0.5) * CONFIG.terrain.width, 
+      y: 10, 
+      z: (enemy.y - 0.5) * CONFIG.terrain.height 
+    };
+    
+    const x = pos.x;
+    const y = pos.z; // Using z as ground plane coordinate
     
     // Draw enemy marker - red X
     ctx.strokeStyle = '#ff4655';  // Red
     ctx.lineWidth = 2;
     
-    const markerSize = 8;
+    const markerSize = 15; // Larger for better visibility
     
     // Draw X
     ctx.beginPath();
@@ -480,11 +614,143 @@ function drawEnemyLayer(ctx, width, height, gameState) {
     ctx.stroke();
     ctx.shadowBlur = 0;
     
+    // Draw a warning circle around the marker
+    ctx.strokeStyle = 'rgba(255, 70, 85, 0.3)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(x, y, 30, 0, Math.PI * 2);
+    ctx.stroke();
+    
+    // Add pulsing effect
+    const pulseSize = 30 + Math.sin(Date.now() / 400) * 8;
+    ctx.strokeStyle = 'rgba(255, 70, 85, 0.2)';
+    ctx.beginPath();
+    ctx.arc(x, y, pulseSize, 0, Math.PI * 2);
+    ctx.stroke();
+    
     // Add label
-    ctx.font = '8px var(--font-mono, monospace)';
+    ctx.font = '12px var(--font-mono, monospace)';
     ctx.fillStyle = '#ff4655';
     ctx.textAlign = 'center';
-    ctx.fillText(enemy.type, x, y + 15);
+    ctx.fillText(enemy.type, x, y + 25);
+    
+    // If it has altitude, show it
+    if (pos.y > 10) {
+      ctx.font = '10px var(--font-mono, monospace)';
+      ctx.fillText(`↑${Math.round(pos.y)}m`, x, y - 20);
+    }
+  });
+}
+
+// Initialize map controls
+function initMapControls() {
+  const mapCanvas = document.getElementById('map-canvas');
+  if (!mapCanvas) return;
+  
+  // Map canvas click handler for zoom controls
+  mapCanvas.addEventListener('click', (event) => {
+    const rect = mapCanvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    const width = mapCanvas.width;
+    const height = mapCanvas.height;
+    
+    // Size and position of zoom buttons
+    const buttonSize = 24;
+    const padding = 10;
+    
+    // Check if zoom in button was clicked
+    if (x >= width - buttonSize - padding && 
+        x <= width - padding &&
+        y >= height / 2 - buttonSize - padding && 
+        y <= height / 2 - padding) {
+      // Zoom in - increase scale
+      mapViewScale = Math.min(mapViewScale * 1.5, 5.0);
+      updateTacticalMap(window.gameState, window.assets || []);
+      return;
+    }
+    
+    // Check if zoom out button was clicked
+    if (x >= width - buttonSize - padding && 
+        x <= width - padding &&
+        y >= height / 2 + padding && 
+        y <= height / 2 + buttonSize + padding) {
+      // Zoom out - decrease scale
+      mapViewScale = Math.max(mapViewScale / 1.5, 0.2);
+      updateTacticalMap(window.gameState, window.assets || []);
+      return;
+    }
+    
+    // Check if reset button was clicked
+    if (x >= width - buttonSize - padding && 
+        x <= width - padding &&
+        y >= height / 2 - buttonSize / 2 && 
+        y <= height / 2 + buttonSize / 2) {
+      // Reset zoom and center
+      mapViewScale = 1.0;
+      mapViewCenter = { x: 0, y: 0 };
+      updateTacticalMap(window.gameState, window.assets || []);
+      return;
+    }
+  });
+  
+  // Add zoom with mouse wheel
+  mapCanvas.addEventListener('wheel', (event) => {
+    event.preventDefault();
+    
+    // Determine zoom direction
+    const zoomFactor = event.deltaY > 0 ? 0.9 : 1.1;
+    
+    // Apply zoom limits
+    mapViewScale = Math.max(0.2, Math.min(5.0, mapViewScale * zoomFactor));
+    
+    // Update the map
+    updateTacticalMap(window.gameState, window.assets || []);
+  });
+  
+  // Add panning with mouse drag
+  let isDragging = false;
+  let dragStartX = 0;
+  let dragStartY = 0;
+  
+  mapCanvas.addEventListener('mousedown', (event) => {
+    // Only start dragging with left mouse button
+    if (event.button === 0) {
+      isDragging = true;
+      dragStartX = event.clientX;
+      dragStartY = event.clientY;
+      mapCanvas.style.cursor = 'grabbing';
+    }
+  });
+  
+  window.addEventListener('mousemove', (event) => {
+    if (isDragging) {
+      // Calculate movement in pixels
+      const deltaX = event.clientX - dragStartX;
+      const deltaY = event.clientY - dragStartY;
+      
+      // Scale movement based on current zoom
+      const worldDeltaX = -deltaX / mapViewScale;
+      const worldDeltaY = -deltaY / mapViewScale;
+      
+      // Update center position
+      mapViewCenter.x += worldDeltaX;
+      mapViewCenter.y += worldDeltaY;
+      
+      // Update drag start position
+      dragStartX = event.clientX;
+      dragStartY = event.clientY;
+      
+      // Update the map
+      updateTacticalMap(window.gameState, window.assets || []);
+    }
+  });
+  
+  window.addEventListener('mouseup', () => {
+    if (isDragging) {
+      isDragging = false;
+      mapCanvas.style.cursor = 'default';
+    }
   });
 }
 
@@ -493,52 +759,209 @@ function drawGridOverlay(ctx, width, height) {
   ctx.strokeStyle = 'rgba(54, 249, 179, 0.15)';
   ctx.lineWidth = 0.5;
   
-  // Draw grid lines
-  const gridSize = 40; // Pixels between grid lines
+  // Draw grid lines in world coordinates
+  const gridSize = 500; // World units (meters) between grid lines
   
-  // Vertical lines
-  for (let x = 0; x < width; x += gridSize) {
+  // Determine visible bounds based on view center and map scale
+  const visibleWidth = width / mapViewScale;
+  const visibleHeight = height / mapViewScale;
+  
+  // Calculate grid start and end points
+  const startX = Math.floor((mapViewCenter.x - visibleWidth/2) / gridSize) * gridSize - gridSize;
+  const endX = Math.ceil((mapViewCenter.x + visibleWidth/2) / gridSize) * gridSize + gridSize;
+  const startY = Math.floor((mapViewCenter.y - visibleHeight/2) / gridSize) * gridSize - gridSize;
+  const endY = Math.ceil((mapViewCenter.y + visibleHeight/2) / gridSize) * gridSize + gridSize;
+  
+  // Draw vertical grid lines
+  for (let x = startX; x <= endX; x += gridSize) {
     ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, height);
+    ctx.moveTo(x, startY);
+    ctx.lineTo(x, endY);
     ctx.stroke();
+    
+    // Draw coordinate number at top of grid line (every 1km)
+    if (x % 1000 === 0) {
+      ctx.fillStyle = 'rgba(54, 249, 179, 0.5)';
+      ctx.font = '10px var(--font-mono, monospace)';
+      ctx.textAlign = 'center';
+      ctx.fillText(`${x}m`, x, startY + 20);
+    }
   }
   
-  // Horizontal lines
-  for (let y = 0; y < height; y += gridSize) {
+  // Draw horizontal grid lines
+  for (let y = startY; y <= endY; y += gridSize) {
     ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(width, y);
+    ctx.moveTo(startX, y);
+    ctx.lineTo(endX, y);
     ctx.stroke();
+    
+    // Draw coordinate number at left of grid line (every 1km)
+    if (y % 1000 === 0) {
+      ctx.fillStyle = 'rgba(54, 249, 179, 0.5)';
+      ctx.font = '10px var(--font-mono, monospace)';
+      ctx.textAlign = 'right';
+      ctx.fillText(`${y}m`, startX - 5, y + 4);
+    }
+  }
+  
+  // Draw finer grid at higher zoom levels
+  if (mapViewScale > 2.0) {
+    // Draw a more detailed grid every 100m at high zoom
+    ctx.strokeStyle = 'rgba(54, 249, 179, 0.08)';
+    
+    for (let x = Math.floor(startX/100)*100; x <= endX; x += 100) {
+      if (x % 500 !== 0) { // Don't redraw major grid lines
+        ctx.beginPath();
+        ctx.moveTo(x, startY);
+        ctx.lineTo(x, endY);
+        ctx.stroke();
+      }
+    }
+    
+    for (let y = Math.floor(startY/100)*100; y <= endY; y += 100) {
+      if (y % 500 !== 0) { // Don't redraw major grid lines
+        ctx.beginPath();
+        ctx.moveTo(startX, y);
+        ctx.lineTo(endX, y);
+        ctx.stroke();
+      }
+    }
   }
 }
 
+// Apply map view transform based on center position and scale
+function applyMapViewTransform(ctx, width, height, center, scale) {
+  // Calculate transform to center the view on the current camera position
+  // and apply the current scale
+  
+  // First translate to center of canvas
+  ctx.translate(width / 2, height / 2);
+  
+  // Apply scale
+  ctx.scale(scale, scale);
+  
+  // Translate to negative of center position
+  ctx.translate(-center.x, -center.y);
+  
+  // Apply world coordinate system transformation (convert terrain coordinates to screen coordinates)
+  // Center the coordinate system on screen (0,0 is center of screen instead of top-left)
+  ctx.translate(CONFIG.terrain.width / 2, CONFIG.terrain.height / 2);
+}
+
+// Draw camera view indicator
+function drawCameraViewIndicator(ctx, width, height) {
+  // Only draw if we have game engine access
+  if (!window.gameEngine || !window.gameEngine.camera) return;
+  
+  // Get camera properties
+  const camera = window.gameEngine.camera;
+  const cameraPos = { x: camera.position.x, y: camera.position.z };
+  
+  // Draw camera position
+  ctx.fillStyle = 'rgba(0, 132, 255, 0.8)';
+  ctx.beginPath();
+  ctx.arc(cameraPos.x, cameraPos.y, 15, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Draw view direction indication
+  if (window.gameEngine.cameraState) {
+    const yawAngle = window.gameEngine.cameraState.yawAngle || 0;
+    
+    // Draw direction indicator
+    ctx.strokeStyle = 'rgba(0, 132, 255, 0.6)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cameraPos.x, cameraPos.y);
+    ctx.lineTo(
+      cameraPos.x + Math.sin(yawAngle) * 40,
+      cameraPos.y + Math.cos(yawAngle) * 40
+    );
+    ctx.stroke();
+    
+    // Draw view cone
+    ctx.fillStyle = 'rgba(0, 132, 255, 0.2)';
+    ctx.beginPath();
+    ctx.moveTo(cameraPos.x, cameraPos.y);
+    // View cone - 60 degrees
+    const viewAngle = Math.PI / 3; // 60 degrees
+    ctx.arc(
+      cameraPos.x, 
+      cameraPos.y, 
+      80, 
+      yawAngle - viewAngle / 2, 
+      yawAngle + viewAngle / 2
+    );
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+// Draw map controls
+function drawMapControls(ctx, width, height) {
+  // Draw zoom controls
+  const buttonSize = 24;
+  const padding = 10;
+  
+  // Zoom in button
+  ctx.fillStyle = 'rgba(30, 41, 59, 0.7)';
+  ctx.fillRect(width - buttonSize - padding, height / 2 - buttonSize - padding, buttonSize, buttonSize);
+  ctx.strokeStyle = 'rgba(54, 249, 179, 0.7)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(width - buttonSize - padding, height / 2 - buttonSize - padding, buttonSize, buttonSize);
+  
+  // Zoom in "+" symbol
+  ctx.fillStyle = 'rgba(54, 249, 179, 0.7)';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = '14px var(--font-mono, monospace)';
+  ctx.fillText('+', width - buttonSize / 2 - padding, height / 2 - buttonSize / 2 - padding);
+  
+  // Zoom out button
+  ctx.fillStyle = 'rgba(30, 41, 59, 0.7)';
+  ctx.fillRect(width - buttonSize - padding, height / 2 + padding, buttonSize, buttonSize);
+  ctx.strokeStyle = 'rgba(54, 249, 179, 0.7)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(width - buttonSize - padding, height / 2 + padding, buttonSize, buttonSize);
+  
+  // Zoom out "-" symbol
+  ctx.fillStyle = 'rgba(54, 249, 179, 0.7)';
+  ctx.fillText('-', width - buttonSize / 2 - padding, height / 2 + buttonSize / 2 + padding);
+  
+  // Reset zoom button
+  ctx.fillStyle = 'rgba(30, 41, 59, 0.7)';
+  ctx.fillRect(width - buttonSize - padding, height / 2 - buttonSize / 2, buttonSize, buttonSize);
+  ctx.strokeStyle = 'rgba(54, 249, 179, 0.7)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(width - buttonSize - padding, height / 2 - buttonSize / 2, buttonSize, buttonSize);
+  
+  // Reset "⟲" symbol
+  ctx.fillStyle = 'rgba(54, 249, 179, 0.7)';
+  ctx.fillText('⟲', width - buttonSize / 2 - padding, height / 2);
+}
+
 // Draw coordinates and scale
-function drawCoordinatesAndScale(ctx, width, height) {
+function drawCoordinatesAndScale(ctx, width, height, center) {
   // Draw coordinate frame
   ctx.fillStyle = 'rgba(54, 249, 179, 0.7)';
   ctx.font = '9px var(--font-mono, monospace)';
   
-  // X-axis markers (only draw a few)
-  for (let i = 0; i <= 4; i++) {
-    const x = width * (i / 4);
-    const coordX = Math.round((i / 4 - 0.5) * CONFIG.terrain.width);
-    ctx.textAlign = 'center';
-    ctx.fillText(`${coordX}`, x, height - 5);
-  }
+  // Current camera position coordinates
+  ctx.textAlign = 'left';
+  ctx.fillText(`X: ${Math.round(center.x)}`, 10, height - 25);
+  ctx.fillText(`Y: ${Math.round(center.y)}`, 10, height - 12);
   
-  // Y-axis markers (only draw a few)
-  for (let i = 0; i <= 4; i++) {
-    const y = height * (i / 4);
-    const coordY = Math.round((i / 4 - 0.5) * CONFIG.terrain.height);
-    ctx.textAlign = 'left';
-    ctx.fillText(`${coordY}`, 5, y);
-  }
+  // Draw cardinal directions
+  ctx.textAlign = 'center';
+  ctx.fillText('N', width / 2, 15);
+  ctx.fillText('S', width / 2, height - 5);
+  ctx.fillText('W', 10, height / 2);
+  ctx.fillText('E', width - 10, height / 2);
   
-  // Draw scale bar
-  const scaleBarWidth = 50;
+  // Draw scale bar - adjusted for current zoom level
+  const scaleBarWidth = 60;
   const scaleBarHeight = 3;
-  const scaleText = "500m";
+  const distance = Math.round(500 / mapViewScale); // Scale distance based on zoom
+  const scaleText = `${distance}m`;
   
   ctx.fillStyle = 'rgba(54, 249, 179, 0.7)';
   ctx.fillRect(width - scaleBarWidth - 10, height - 15, scaleBarWidth, scaleBarHeight);
