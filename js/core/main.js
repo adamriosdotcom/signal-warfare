@@ -15,8 +15,10 @@ class GameEngine {
     this.scene = null;
     this.camera = null;
     this.renderer = null;
-    this.clock = null;
+    this.clock = new THREE.Clock(); // Add clock for animation
     this.terrain = null;
+    this.terrain2 = null; // Second terrain for infinite scrolling
+    this.composer = null; // Effect composer for post-processing
     
     // Game loop
     this.lastTime = 0;
@@ -80,13 +82,13 @@ class GameEngine {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x0c1116);
     
-    // Create camera with better positioning for 3D terrain
+    // Create camera with positioning for vaporwave terrain
     this.camera = new THREE.PerspectiveCamera(
-      45, window.innerWidth / window.innerHeight, 10, 30000 // Lower FOV, higher far plane
+      75, window.innerWidth / window.innerHeight, 0.1, 30000 // Higher FOV for vaporwave style
     );
-    // Position camera to view terrain from a dramatic angle
-    this.camera.position.set(0, -1500, 2000); // More elevation for better terrain viewing
-    this.camera.lookAt(0, 0, 0);
+    // Position camera low and close to the grid for that classic vaporwave look
+    this.camera.position.set(0, 60, 1200); // Lower to ground, looking down the infinite grid
+    this.camera.lookAt(0, 0, -CONFIG.terrain.height * 0.5); // Look ahead down the grid
     
     console.log("Camera positioned for 3D terrain view");
     
@@ -449,84 +451,264 @@ class GameEngine {
     console.log('Panel positions defined in CSS');
   }
   
-  // Create advanced 3D terrain
+  // Create vaporwave 3D terrain
   createTerrain() {
-    console.log("Creating high-detail 3D terrain...");
+    console.log("Creating vaporwave 3D terrain...");
     
-    // Higher resolution for more detailed terrain - 512x512 gives much more detail
-    const resolution = 512;
+    // Define the dimensions of the terrain
+    const terrainWidth = CONFIG.terrain.width;
+    const terrainHeight = CONFIG.terrain.height * 2; // Make it longer for vaporwave effect
+    
+    // Create a lower resolution terrain for vaporwave aesthetic
+    const resolution = 24; // Lower poly for vaporwave style
     const geometry = new THREE.PlaneGeometry(
-      CONFIG.terrain.width, 
-      CONFIG.terrain.height, 
-      resolution - 1, 
-      resolution - 1 // Use resolution-1 for segments (creates 'resolution' number of vertices)
+      terrainWidth, 
+      terrainHeight, 
+      resolution, 
+      resolution
     );
     
-    // Generate advanced terrain with multi-layer noise
-    const terrainData = this.generateAdvancedTerrainData(geometry, resolution);
+    // Create a texture canvas for the grid
+    const gridTexture = this.createVaporwaveGridTexture(resolution);
     
-    // Create texture canvas for detailed terrain texturing
-    const textureCanvas = this.createTerrainTextureCanvas(terrainData, resolution);
-    const terrainTexture = new THREE.CanvasTexture(textureCanvas);
-    terrainTexture.wrapS = terrainTexture.wrapT = THREE.RepeatWrapping;
-    terrainTexture.repeat.set(4, 4); // Repeat to avoid stretching
+    // Create metalness map for reflective squares
+    const metalnessTexture = this.createMetalnessMap(resolution);
     
-    // Create normal map for added detail
-    const normalCanvas = this.createTerrainNormalMap(terrainData, resolution);
-    const normalTexture = new THREE.CanvasTexture(normalCanvas);
-    normalTexture.wrapS = normalTexture.wrapT = THREE.RepeatWrapping;
-    normalTexture.repeat.set(4, 4);
+    // Create displacement map for terrain edges
+    const displacementTexture = this.createDisplacementMap(resolution);
     
-    // Create terrain material with advanced texturing and normal mapping
+    // Add material with vaporwave aesthetic
     const material = new THREE.MeshStandardMaterial({
-      map: terrainTexture,
-      normalMap: normalTexture,
-      normalScale: new THREE.Vector2(1, 1),
-      metalness: 0.1,
-      roughness: 0.9,
-      wireframe: false,
-      side: THREE.FrontSide,
-      vertexColors: true // Still use vertex colors for additional detail
+      map: gridTexture,
+      displacementMap: displacementTexture,
+      displacementScale: 250,
+      metalnessMap: metalnessTexture,
+      metalness: 0.96,
+      roughness: 0.5,
+      emissive: 0x1a0033,
+      emissiveIntensity: 0.05,
+      side: THREE.DoubleSide
     });
     
-    console.log("Created advanced terrain material with texturing and normal mapping");
+    console.log("Created vaporwave terrain material");
     
-    // Create terrain mesh
+    // Create primary terrain mesh
     this.terrain = new THREE.Mesh(geometry, material);
     this.terrain.rotation.x = -Math.PI / 2; // Rotate to face up
+    this.terrain.position.y = 0;
+    this.terrain.position.z = 0;
     this.terrain.receiveShadow = true;
-    this.terrain.castShadow = true; // Allow terrain to cast shadows for more realism
     
-    // Store terrain data for later use
-    this.terrain.userData.heightData = terrainData.heightData;
-    this.terrain.userData.biomeData = terrainData.biomeData;
+    // Create second terrain for infinite scrolling effect
+    this.terrain2 = new THREE.Mesh(geometry, material);
+    this.terrain2.rotation.x = -Math.PI / 2;
+    this.terrain2.position.y = 0;
+    this.terrain2.position.z = -terrainHeight; // Position behind first terrain
+    this.terrain2.receiveShadow = true;
     
-    // Add atmospheric fog for depth perception
-    this.scene.fog = new THREE.FogExp2(0x6ba4cc, 0.00025);
+    // Add dark fog for vaporwave depth effect
+    this.scene.fog = new THREE.Fog('#000000', terrainHeight * 0.4, terrainHeight * 0.8);
+    this.scene.background = new THREE.Color('#000000');
     
-    // Add terrain to scene
+    // Add terrains to scene
     this.scene.add(this.terrain);
+    this.scene.add(this.terrain2);
     
-    // Create water surface for more realistic terrain
-    this.createWaterSurface();
+    // Add spotlights for vaporwave lighting
+    this.createVaporwaveLighting();
     
-    // Add trees, rocks and other details based on biome data
-    this.addTerrainDetails(terrainData);
+    // Create "sun" or "moon" for vaporwave scene
+    this.createVaporwaveSun();
     
-    // Add grid that follows terrain contours
-    const gridSize = CONFIG.terrain.width;
-    const gridDivisions = gridSize / 500;
-    const gridHelper = new THREE.GridHelper(
-      gridSize, gridDivisions, 0x405060, 0x283848
-    );
-    gridHelper.position.y = 1;
-    gridHelper.rotation.x = Math.PI / 2;
-    this.scene.add(gridHelper);
+    // Store terrain for animation
+    this.visualizationObjects.set('vaporwave-terrain1', this.terrain);
+    this.visualizationObjects.set('vaporwave-terrain2', this.terrain2);
     
-    // Create enhanced skybox with stars
-    this.createAdvancedSkybox();
+    // Add post-processing effects if Three.js EffectComposer is available
+    this.setupPostProcessing();
     
-    console.log("3D terrain creation complete");
+    console.log("Vaporwave 3D terrain creation complete");
+  }
+  
+  // Create vaporwave lighting with colored spotlights
+  createVaporwaveLighting() {
+    // Add ambient light for base visibility
+    const ambientLight = new THREE.AmbientLight(0x111111, 0.5);
+    this.scene.add(ambientLight);
+    
+    // Add right spotlight with pinkish/red color
+    const spotlightRight = new THREE.SpotLight('#d53c3d', 20, CONFIG.terrain.width, Math.PI * 0.1, 0.25);
+    spotlightRight.position.set(CONFIG.terrain.width * 0.25, 800, 500);
+    spotlightRight.target.position.set(-CONFIG.terrain.width * 0.25, 0, 0);
+    this.scene.add(spotlightRight);
+    this.scene.add(spotlightRight.target);
+    
+    // Add left spotlight with pinkish/red color
+    const spotlightLeft = new THREE.SpotLight('#d53c3d', 20, CONFIG.terrain.width, Math.PI * 0.1, 0.25);
+    spotlightLeft.position.set(-CONFIG.terrain.width * 0.25, 800, 500);
+    spotlightLeft.target.position.set(CONFIG.terrain.width * 0.25, 0, 0);
+    this.scene.add(spotlightLeft);
+    this.scene.add(spotlightLeft.target);
+  }
+  
+  // Create vaporwave sun/moon
+  createVaporwaveSun() {
+    const sunGeometry = new THREE.CircleGeometry(400, 32);
+    const sunMaterial = new THREE.MeshBasicMaterial({ 
+      color: 0xff1a75,
+      transparent: true,
+      opacity: 0.85
+    });
+    
+    const sun = new THREE.Mesh(sunGeometry, sunMaterial);
+    sun.position.set(0, 300, -CONFIG.terrain.height);
+    
+    this.scene.add(sun);
+    this.visualizationObjects.set('vaporwave-sun', sun);
+    
+    // Add sun animation
+    sun.userData = {
+      update: (deltaTime, object) => {
+        object.position.y = 300 + Math.sin(deltaTime * 0.2) * 30;
+      }
+    };
+  }
+  
+  // Create grid texture for vaporwave aesthetic
+  createVaporwaveGridTexture(resolution) {
+    const textureSize = 1024;
+    const canvas = document.createElement('canvas');
+    canvas.width = textureSize;
+    canvas.height = textureSize;
+    const ctx = canvas.getContext('2d');
+    
+    // Fill background with dark purple
+    ctx.fillStyle = '#0a001a';
+    ctx.fillRect(0, 0, textureSize, textureSize);
+    
+    // Calculate grid cell size
+    const cellSize = textureSize / resolution;
+    
+    // Draw grid lines
+    ctx.strokeStyle = '#ff00cc';
+    ctx.lineWidth = 2;
+    
+    // Draw horizontal grid lines
+    for (let i = 0; i <= resolution; i++) {
+      const y = i * cellSize;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(textureSize, y);
+      ctx.stroke();
+    }
+    
+    // Draw vertical grid lines
+    for (let i = 0; i <= resolution; i++) {
+      const x = i * cellSize;
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, textureSize);
+      ctx.stroke();
+    }
+    
+    // Create texture from canvas
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(1, 1);
+    
+    return texture;
+  }
+  
+  // Create metalness map for reflective grid squares
+  createMetalnessMap(resolution) {
+    const textureSize = 1024;
+    const canvas = document.createElement('canvas');
+    canvas.width = textureSize;
+    canvas.height = textureSize;
+    const ctx = canvas.getContext('2d');
+    
+    // Fill with black (non-metallic)
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, textureSize, textureSize);
+    
+    // Calculate grid cell size
+    const cellSize = textureSize / resolution;
+    
+    // Make random grid cells metallic (white)
+    ctx.fillStyle = '#ffffff';
+    
+    for (let y = 0; y < resolution; y++) {
+      for (let x = 0; x < resolution; x++) {
+        // Make cells metallic with 30% probability, but not in the middle area
+        if (Math.random() < 0.3 && (x < resolution * 0.3 || x > resolution * 0.7)) {
+          ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+        }
+      }
+    }
+    
+    // Create texture from canvas
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(1, 1);
+    
+    return texture;
+  }
+  
+  // Create displacement map for terrain
+  createDisplacementMap(resolution) {
+    const textureSize = 1024;
+    const canvas = document.createElement('canvas');
+    canvas.width = textureSize;
+    canvas.height = textureSize;
+    const ctx = canvas.getContext('2d');
+    
+    // Fill with black (no displacement)
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, textureSize, textureSize);
+    
+    // Create gradient for sides to be higher
+    const gradient = ctx.createLinearGradient(0, 0, textureSize, 0);
+    gradient.addColorStop(0, '#ffffff'); // High on the left
+    gradient.addColorStop(0.3, '#000000'); // Low in the middle (30%)
+    gradient.addColorStop(0.7, '#000000'); // Low in the middle (70%)
+    gradient.addColorStop(1, '#ffffff'); // High on the right
+    
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, textureSize, textureSize);
+    
+    // Create texture from canvas
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(1, 1);
+    
+    return texture;
+  }
+  
+  // Setup post-processing effects for RGB shift
+  setupPostProcessing() {
+    if (typeof THREE.EffectComposer !== 'undefined') {
+      console.log('Setting up post-processing effects');
+      
+      // Create effect composer
+      this.composer = new THREE.EffectComposer(this.renderer);
+      
+      // Add render pass
+      const renderPass = new THREE.RenderPass(this.scene, this.camera);
+      this.composer.addPass(renderPass);
+      
+      // Add RGB shift pass if available
+      if (typeof THREE.ShaderPass !== 'undefined' && typeof THREE.RGBShiftShader !== 'undefined') {
+        const rgbShiftPass = new THREE.ShaderPass(THREE.RGBShiftShader);
+        rgbShiftPass.uniforms['amount'].value = 0.0015;
+        this.composer.addPass(rgbShiftPass);
+        
+        // Add gamma correction pass
+        if (typeof THREE.GammaCorrectionShader !== 'undefined') {
+          const gammaCorrectionPass = new THREE.ShaderPass(THREE.GammaCorrectionShader);
+          this.composer.addPass(gammaCorrectionPass);
+        }
+      }
+    }
   }
   
   // Create water surface
@@ -2488,6 +2670,7 @@ class GameEngine {
   }
   
   // Main game loop
+  
   gameLoop(now) {
     if (!this.isRunning) {
       return;
@@ -2496,6 +2679,9 @@ class GameEngine {
     // Calculate delta time in seconds
     const deltaTime = (now - this.lastTime) / 1000;
     this.lastTime = now;
+    
+    // Get elapsed time from clock (for vaporwave terrain animation)
+    const elapsedTime = this.clock.getElapsedTime();
     
     // Update game state
     gameState.update(deltaTime);
@@ -2510,9 +2696,24 @@ class GameEngine {
       }
     });
     
-    // Render scene
-    const renderSystem = this.ecs.getSystem('render');
-    renderSystem.render();
+    // Update vaporwave terrain animation
+    if (this.terrain && this.terrain2) {
+      const terrainHeight = CONFIG.terrain.height * 2;
+      const speed = 0.05;
+      
+      // When the first terrain reaches the end, reset it
+      this.terrain.position.z = (elapsedTime * terrainHeight * speed) % terrainHeight;
+      // Position the second terrain behind the first
+      this.terrain2.position.z = ((elapsedTime * terrainHeight * speed) % terrainHeight) - terrainHeight;
+    }
+    
+    // Render scene with post-processing if available
+    if (this.composer) {
+      this.composer.render();
+    } else {
+      const renderSystem = this.ecs.getSystem('render');
+      renderSystem.render();
+    }
     
     // Request next frame
     requestAnimationFrame(this.gameLoop.bind(this));
