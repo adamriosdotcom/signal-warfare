@@ -360,9 +360,14 @@ function drawSignals(ctx, signals, width, height) {
     ctx.beginPath();
     ctx.moveTo(0, height - 15); // Adjust to leave room for labels
     
-    for (let x = 0; x < width; x++) {
+    // Prepare for curve smoothing - use fewer points and then curve
+    const points = [];
+    const pointCount = Math.min(100, width); // Cap points to improve performance
+    
+    for (let i = 0; i <= pointCount; i++) {
       // Convert x position to frequency
-      const normalizedX = x / width;
+      const normalizedX = i / pointCount;
+      const x = normalizedX * width;
       
       // Calculate signal shape
       const centerPoint = signal.position;
@@ -376,14 +381,23 @@ function drawSignals(ctx, signals, width, height) {
         amplitude = signal.strength * Math.exp(-(distance * distance) / (2 * signal.width * signal.width));
         amplitude *= (0.85 + 0.3 * Math.random()); // Add randomness
       } else if (signalType === 'JAM') {
-        // Jamming signal is wider and more square
+        // Jamming signal is wider and more square but with smooth edges
         amplitude = signal.strength * (distance < signal.width * 1.5 ? 
-          (1 - Math.pow(distance/(signal.width * 1.5), 4)) : 0);
+          (1 - Math.pow(distance/(signal.width * 1.5), 3)) : 0);
       } else if (signalType === 'WIFI' || signalType === '5G') {
-        // WIFI and 5G are wider with side lobes
+        // WIFI and 5G are wider with smooth side lobes
         const mainLobe = signal.strength * Math.exp(-(distance * distance) / (2 * signal.width * signal.width));
-        const sideLobes = signal.strength * 0.2 * Math.cos(distance * 50) * Math.exp(-distance * 8);
-        amplitude = mainLobe + (distance > signal.width ? sideLobes : 0);
+        
+        // Smoother side lobes with less sharp transitions
+        let sideLobes = 0;
+        if (distance > signal.width * 0.6) {
+          // Smoother falloff for side lobes
+          const sideLobePhase = Math.PI * 8 * distance;
+          const falloff = Math.exp(-distance * 6);
+          sideLobes = signal.strength * 0.15 * Math.cos(sideLobePhase) * falloff;
+        }
+        
+        amplitude = mainLobe + sideLobes;
       } else {
         // Standard Gaussian for other signals
         amplitude = signal.strength * Math.exp(-(distance * distance) / (2 * signal.width * signal.width));
@@ -393,10 +407,35 @@ function drawSignals(ctx, signals, width, height) {
       const usableHeight = height - 15;
       const y = usableHeight - (amplitude * usableHeight);
       
-      ctx.lineTo(x, y);
+      // Add point to our collection
+      points.push({ x, y });
     }
     
-    ctx.lineTo(width, height - 15);
+    // Draw smoothed curve using bezier curves
+    if (points.length > 0) {
+      ctx.moveTo(0, height - 15);
+      ctx.lineTo(points[0].x, points[0].y);
+      
+      // Draw smooth bezier curves between points
+      for (let i = 0; i < points.length - 1; i++) {
+        const currentPoint = points[i];
+        const nextPoint = points[i + 1];
+        
+        // Control points for smooth curve
+        const cpx = (currentPoint.x + nextPoint.x) / 2;
+        
+        // Draw a quadratic curve to the midpoint using the current point as control
+        ctx.quadraticCurveTo(
+          currentPoint.x, currentPoint.y,
+          cpx, (currentPoint.y + nextPoint.y) / 2
+        );
+      }
+      
+      // Final line to last point
+      ctx.lineTo(points[points.length - 1].x, points[points.length - 1].y);
+      ctx.lineTo(width, height - 15);
+    }
+    
     ctx.closePath();
     ctx.fill();
     
@@ -882,19 +921,42 @@ function animateSpectrum() {
           modifiedSignal.position = signal.position + 0.02 * (Math.random() - 0.5);
           modifiedSignal.width = signal.width * (0.9 + 0.2 * Math.random());
         } else if (signal.name === 'JAM') {
-          // Jamming signals - simplified
-          const pulsePhase = (elapsedTime * 2 + randomSeed) % 6.28;
-          modifiedSignal.strength = signal.strength * (0.8 + 0.2 * Math.abs(Math.sin(pulsePhase)));
-          modifiedSignal.position = signal.position + 0.01 * Math.sin(elapsedTime * 0.5);
+          // Jamming signals - smoother pulsing
+          // Precalculated sine values for common phases to reduce math operations
+          const phase = (elapsedTime * 1.5) % 6.28;
+          // Use a smoother pulse calculation
+          let pulseFactor;
+          if (phase < 1.57) { // 0 to π/2
+            pulseFactor = 0.8 + 0.2 * (phase / 1.57);
+          } else if (phase < 4.71) { // π/2 to 3π/2
+            pulseFactor = 1.0 - 0.2 * ((phase - 1.57) / 3.14);
+          } else { // 3π/2 to 2π
+            pulseFactor = 0.8 + 0.2 * ((phase - 4.71) / 1.57);
+          }
+          
+          modifiedSignal.strength = signal.strength * pulseFactor;
+          // Smoother position drift
+          modifiedSignal.position = signal.position + 0.008 * Math.sin(elapsedTime * 0.4 + randomSeed);
           modifiedSignal.width = signal.width;
         } else if (signal.isHostile) {
-          // Hostile signals - simplified
-          modifiedSignal.strength = signal.strength * (0.9 + 0.1 * Math.sin(elapsedTime + randomSeed));
-          modifiedSignal.position = signal.position + 0.01 * Math.sin(elapsedTime * 0.5);
-          modifiedSignal.width = signal.width;
+          // Hostile signals - smoother transitions
+          // Use a smoother strength oscillation
+          const oscillation = 0.1 * Math.sin(elapsedTime * 0.8 + randomSeed);
+          modifiedSignal.strength = signal.strength * (0.95 + oscillation);
+          
+          // Position drift with smoothing
+          const drift = 0.005 * Math.sin(elapsedTime * 0.3 + randomSeed);
+          modifiedSignal.position = signal.position + drift;
+          
+          // Very subtle width changes
+          modifiedSignal.width = signal.width * (0.98 + 0.02 * Math.sin(elapsedTime * 0.2));
         } else {
-          // Civilian signals - very stable to reduce calculations
-          modifiedSignal.strength = signal.strength * (0.97 + 0.03 * Math.sin(elapsedTime * 0.3 + randomSeed));
+          // Civilian signals - very stable with subtle, smooth variations
+          // Use lookup table approach for smoother sine approximation
+          const cyclePos = (elapsedTime * 0.2 + randomSeed) % 1.0;
+          const smoothFactor = 0.02 * (0.5 - 0.5 * Math.cos(cyclePos * Math.PI * 2));
+          
+          modifiedSignal.strength = signal.strength * (0.98 + smoothFactor);
           modifiedSignal.position = signal.position;
           modifiedSignal.width = signal.width;
         }
