@@ -827,11 +827,11 @@ function initMapControls() {
     
     // Size and position of zoom buttons
     const buttonSize = 24;
-    const padding = 10;
+    const padding = 20; // Increased to match drawMapControls function
     
-    // Check if zoom in button was clicked
-    if (x >= width - buttonSize - padding && 
-        x <= width - padding &&
+    // Check if zoom in button was clicked - positioned on left side
+    if (x >= padding && 
+        x <= padding + buttonSize &&
         y >= height / 2 - buttonSize - padding && 
         y <= height / 2 - padding) {
       // Zoom in - increase scale
@@ -840,9 +840,9 @@ function initMapControls() {
       return;
     }
     
-    // Check if zoom out button was clicked
-    if (x >= width - buttonSize - padding && 
-        x <= width - padding &&
+    // Check if zoom out button was clicked - positioned on left side
+    if (x >= padding && 
+        x <= padding + buttonSize &&
         y >= height / 2 + padding && 
         y <= height / 2 + buttonSize + padding) {
       // Zoom out - decrease scale
@@ -851,9 +851,9 @@ function initMapControls() {
       return;
     }
     
-    // Check if reset button was clicked
-    if (x >= width - buttonSize - padding && 
-        x <= width - padding &&
+    // Check if reset button was clicked - positioned on left side
+    if (x >= padding && 
+        x <= padding + buttonSize &&
         y >= height / 2 - buttonSize / 2 && 
         y <= height / 2 + buttonSize / 2) {
       // Reset zoom and center
@@ -1125,43 +1125,43 @@ function drawCameraViewIndicator(ctx, width, height) {
 function drawMapControls(ctx, width, height) {
   // Draw zoom controls
   const buttonSize = 24;
-  const padding = 10;
+  const padding = 20; // Increased padding to move buttons to the right, away from the West indicator
   
-  // Zoom in button
+  // Zoom in button - positioned on left side
   ctx.fillStyle = 'rgba(30, 41, 59, 0.7)';
-  ctx.fillRect(width - buttonSize - padding, height / 2 - buttonSize - padding, buttonSize, buttonSize);
+  ctx.fillRect(padding, height / 2 - buttonSize - padding, buttonSize, buttonSize);
   ctx.strokeStyle = 'rgba(54, 249, 179, 0.7)';
   ctx.lineWidth = 1;
-  ctx.strokeRect(width - buttonSize - padding, height / 2 - buttonSize - padding, buttonSize, buttonSize);
+  ctx.strokeRect(padding, height / 2 - buttonSize - padding, buttonSize, buttonSize);
   
   // Zoom in "+" symbol
   ctx.fillStyle = 'rgba(54, 249, 179, 0.7)';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.font = '14px var(--font-mono, monospace)';
-  ctx.fillText('+', width - buttonSize / 2 - padding, height / 2 - buttonSize / 2 - padding);
+  ctx.fillText('+', padding + buttonSize / 2, height / 2 - buttonSize / 2 - padding);
   
-  // Zoom out button
+  // Zoom out button - positioned on left side
   ctx.fillStyle = 'rgba(30, 41, 59, 0.7)';
-  ctx.fillRect(width - buttonSize - padding, height / 2 + padding, buttonSize, buttonSize);
+  ctx.fillRect(padding, height / 2 + padding, buttonSize, buttonSize);
   ctx.strokeStyle = 'rgba(54, 249, 179, 0.7)';
   ctx.lineWidth = 1;
-  ctx.strokeRect(width - buttonSize - padding, height / 2 + padding, buttonSize, buttonSize);
+  ctx.strokeRect(padding, height / 2 + padding, buttonSize, buttonSize);
   
   // Zoom out "-" symbol
   ctx.fillStyle = 'rgba(54, 249, 179, 0.7)';
-  ctx.fillText('-', width - buttonSize / 2 - padding, height / 2 + buttonSize / 2 + padding);
+  ctx.fillText('-', padding + buttonSize / 2, height / 2 + buttonSize / 2 + padding);
   
-  // Reset zoom button
+  // Reset zoom button - positioned on left side
   ctx.fillStyle = 'rgba(30, 41, 59, 0.7)';
-  ctx.fillRect(width - buttonSize - padding, height / 2 - buttonSize / 2, buttonSize, buttonSize);
+  ctx.fillRect(padding, height / 2 - buttonSize / 2, buttonSize, buttonSize);
   ctx.strokeStyle = 'rgba(54, 249, 179, 0.7)';
   ctx.lineWidth = 1;
-  ctx.strokeRect(width - buttonSize - padding, height / 2 - buttonSize / 2, buttonSize, buttonSize);
+  ctx.strokeRect(padding, height / 2 - buttonSize / 2, buttonSize, buttonSize);
   
   // Reset "⟲" symbol
   ctx.fillStyle = 'rgba(54, 249, 179, 0.7)';
-  ctx.fillText('⟲', width - buttonSize / 2 - padding, height / 2);
+  ctx.fillText('⟲', padding + buttonSize / 2, height / 2);
 }
 
 // Draw coordinates and scale
@@ -1183,7 +1183,7 @@ function drawCoordinatesAndScale(ctx, width, height, center) {
   ctx.textAlign = 'center';
   ctx.fillText('N', width / 2, 15);
   ctx.fillText('S', width / 2, height - 5);
-  ctx.fillText('W', 10, height / 2);
+  ctx.fillText('W', 5, height / 2); // Moved West indicator to the far left to avoid overlap with buttons
   ctx.fillText('E', width - 10, height / 2);
   
   // Draw scale bar - adjusted for current zoom level
