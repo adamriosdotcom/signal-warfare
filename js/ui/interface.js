@@ -96,8 +96,19 @@ function initMapLayerToggles() {
   
   mapToggles.forEach(toggle => {
     toggle.addEventListener('click', () => {
-      // Toggle active state
-      toggle.classList.toggle('active');
+      // Get all toggles in the same group
+      const allToggles = document.querySelectorAll('.map-toggle');
+      
+      // Check if this is already active (for toggle functionality)
+      const wasActive = toggle.classList.contains('active');
+      
+      // Remove active class from all toggles
+      allToggles.forEach(t => t.classList.remove('active'));
+      
+      // If it wasn't already active, make it active now
+      if (!wasActive) {
+        toggle.classList.add('active');
+      }
       
       // Update the tactical map when layers change
       updateTacticalMap(window.gameState, window.assets || []);
