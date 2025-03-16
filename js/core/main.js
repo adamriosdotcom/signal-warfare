@@ -86,8 +86,8 @@ class GameEngine {
     this.camera = new THREE.PerspectiveCamera(
       75, window.innerWidth / window.innerHeight, 0.1, 30000 // Higher FOV for vaporwave style
     );
-    // Position camera low and close to the grid for that classic vaporwave look
-    this.camera.position.set(0, 60, 1200); // Lower to ground, looking down the infinite grid
+    // Position camera higher above the grid for better vaporwave view
+    this.camera.position.set(0, 300, 1200); // Higher above ground, looking down the infinite grid
     this.camera.lookAt(0, 0, -CONFIG.terrain.height * 0.5); // Look ahead down the grid
     
     // Store initial camera state for orbital controls
@@ -545,9 +545,9 @@ class GameEngine {
   createTerrain() {
     console.log("Creating vaporwave 3D terrain...");
     
-    // Define the dimensions of the terrain
-    const terrainWidth = CONFIG.terrain.width;
-    const terrainHeight = CONFIG.terrain.height * 2; // Make it longer for vaporwave effect
+    // Define the dimensions of the terrain - expanded for vaporwave effect
+    const terrainWidth = CONFIG.terrain.width * 1.5; // Wider to prevent seeing edges
+    const terrainHeight = CONFIG.terrain.height * 2.5; // Longer for better infinite effect
     
     // Create a lower resolution terrain for vaporwave aesthetic
     const resolution = 24; // Lower poly for vaporwave style
@@ -598,8 +598,8 @@ class GameEngine {
     this.terrain2.position.z = -terrainHeight; // Position behind first terrain
     this.terrain2.receiveShadow = true;
     
-    // Add dark fog for vaporwave depth effect
-    this.scene.fog = new THREE.Fog('#000000', terrainHeight * 0.4, terrainHeight * 0.8);
+    // Add dark fog for vaporwave depth effect - adjusted for larger terrain
+    this.scene.fog = new THREE.Fog('#000000', terrainHeight * 0.35, terrainHeight * 0.85);
     this.scene.background = new THREE.Color('#000000');
     
     // Add terrains to scene
@@ -625,37 +625,37 @@ class GameEngine {
     const ambientLight = new THREE.AmbientLight(0x111111, 0.5);
     this.scene.add(ambientLight);
     
-    // Add right spotlight with pinkish/red color (brighter)
-    const spotlightRight = new THREE.SpotLight('#ff3366', 25, CONFIG.terrain.width * 1.5, Math.PI * 0.1, 0.25);
-    spotlightRight.position.set(CONFIG.terrain.width * 0.25, 800, 500);
-    spotlightRight.target.position.set(-CONFIG.terrain.width * 0.25, 0, 0);
+    // Add right spotlight with pinkish/red color (brighter) - adjusted for wider terrain
+    const spotlightRight = new THREE.SpotLight('#ff3366', 25, terrainWidth * 1.2, Math.PI * 0.1, 0.25);
+    spotlightRight.position.set(terrainWidth * 0.25, 800, 500);
+    spotlightRight.target.position.set(-terrainWidth * 0.25, 0, 0);
     this.scene.add(spotlightRight);
     this.scene.add(spotlightRight.target);
     
-    // Add left spotlight with cyan/blue color for contrast
-    const spotlightLeft = new THREE.SpotLight('#00ccff', 25, CONFIG.terrain.width * 1.5, Math.PI * 0.1, 0.25);
-    spotlightLeft.position.set(-CONFIG.terrain.width * 0.25, 800, 500);
-    spotlightLeft.target.position.set(CONFIG.terrain.width * 0.25, 0, 0);
+    // Add left spotlight with cyan/blue color for contrast - adjusted for wider terrain
+    const spotlightLeft = new THREE.SpotLight('#00ccff', 25, terrainWidth * 1.2, Math.PI * 0.1, 0.25);
+    spotlightLeft.position.set(-terrainWidth * 0.25, 800, 500);
+    spotlightLeft.target.position.set(terrainWidth * 0.25, 0, 0);
     this.scene.add(spotlightLeft);
     this.scene.add(spotlightLeft.target);
     
-    // Add front spotlight with purple tone
-    const spotlightFront = new THREE.SpotLight('#cc33ff', 15, CONFIG.terrain.width * 2, Math.PI * 0.15, 0.5);
+    // Add front spotlight with purple tone - adjusted for longer terrain
+    const spotlightFront = new THREE.SpotLight('#cc33ff', 15, terrainHeight, Math.PI * 0.15, 0.5);
     spotlightFront.position.set(0, 600, 1000);
-    spotlightFront.target.position.set(0, 0, -CONFIG.terrain.height * 0.5);
+    spotlightFront.target.position.set(0, 0, -terrainHeight * 0.5);
     this.scene.add(spotlightFront);
     this.scene.add(spotlightFront.target);
     
-    // Add some distant point lights for additional highlights
-    const colors = [0xff00ff, 0x00ffff, 0xff3366];
-    for (let i = 0; i < 3; i++) {
-      const pointLight = new THREE.PointLight(colors[i], 5, CONFIG.terrain.width);
-      const angle = (i / 3) * Math.PI * 2;
-      const distance = CONFIG.terrain.width * 0.6;
+    // Add some distant point lights for additional highlights - adjusted for larger terrain
+    const colors = [0xff00ff, 0x00ffff, 0xff3366, 0x33ff99, 0xffcc00]; // Added more colors
+    for (let i = 0; i < colors.length; i++) {
+      const pointLight = new THREE.PointLight(colors[i], 5, terrainWidth);
+      const angle = (i / colors.length) * Math.PI * 2;
+      const distance = terrainWidth * 0.7;
       pointLight.position.set(
         Math.cos(angle) * distance,
         300 + Math.sin(i * 5) * 100,
-        -CONFIG.terrain.height * 0.5 + Math.sin(angle) * distance
+        -terrainHeight * 0.4 + Math.sin(angle) * distance * 0.5
       );
       this.scene.add(pointLight);
       
@@ -2914,8 +2914,8 @@ class GameEngine {
     
     // Update vaporwave terrain animation
     if (this.terrain && this.terrain2) {
-      const terrainHeight = CONFIG.terrain.height * 2;
-      const speed = 0.05;
+      const terrainHeight = CONFIG.terrain.height * 2.5; // Match expanded terrain height
+      const speed = 0.04; // Slightly slower for smoother effect with larger terrain
       
       // When the first terrain reaches the end, reset it
       this.terrain.position.z = (elapsedTime * terrainHeight * speed) % terrainHeight;
