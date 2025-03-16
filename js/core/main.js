@@ -60,6 +60,19 @@ class GameEngine {
     // Initialize input handlers
     this.initializeInput();
     
+    // Wait for document to be fully ready before initializing UI
+    if (document.readyState === 'complete') {
+      this.completeInitialization();
+    } else {
+      // Wait for DOM to be ready
+      document.addEventListener('DOMContentLoaded', () => {
+        this.completeInitialization();
+      });
+    }
+  }
+  
+  // Complete initialization after DOM is ready
+  completeInitialization() {
     // Initialize UI elements
     this.initializeUI();
     
@@ -664,10 +677,35 @@ class GameEngine {
     const jammerCount = assets.filter(a => a.type === 'JAMMER').length;
     const droneCount = assets.filter(a => a.type === 'DRONE').length;
     
-    document.getElementById('jammer-count').textContent = jammerCount;
-    document.getElementById('drone-count').textContent = droneCount;
-    document.getElementById('available-jammers').textContent = 
-      CONFIG.mission.defaultAssets.jammers.STANDARD - jammerCount;
+    // Safely update UI elements with null checks
+    const updateElement = (id, value) => {
+      const element = document.getElementById(id);
+      if (element) {
+        element.textContent = value;
+      }
+    };
+    
+    // Update counters
+    updateElement('jammer-count', jammerCount);
+    updateElement('drone-count', droneCount);
+    
+    // Update deployed jammers counter - using new UI format
+    const totalJammers = Object.values(CONFIG.mission.defaultAssets.jammers).reduce((acc, val) => acc + val, 0);
+    updateElement('deployed-jammers', `${jammerCount}/${totalJammers}`);
+    
+    // Update individual jammer type counts
+    if (window.updateJammerAvailability) {
+      const availableJammers = {...CONFIG.mission.defaultAssets.jammers};
+      
+      // Reduce available counts by deployed jammers
+      Object.keys(availableJammers).forEach(type => {
+        const deployedCount = assets.filter(a => a.type === 'JAMMER' && a.jammerType === type).length;
+        availableJammers[type] = Math.max(0, availableJammers[type] - deployedCount);
+      });
+      
+      // Update the UI with available jammers
+      window.updateJammerAvailability(availableJammers);
+    }
   }
   
   // Panel positions are now defined in CSS

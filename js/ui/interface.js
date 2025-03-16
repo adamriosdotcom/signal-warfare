@@ -9,7 +9,10 @@
 // This file currently contains placeholder code
 
 // Initialize UI components
-document.addEventListener('DOMContentLoaded', () => {
+// Function to initialize UI components
+function initializeUIComponents() {
+  console.log('Initializing UI components');
+  
   // Initialize minimize buttons
   initMinimizeButtons();
   
@@ -28,8 +31,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize panel dragging
   initPanelDragging();
   
-  // Initialize tactical map
-  updateTacticalMap(window.gameState, window.assets || []);
+  // Initialize tactical map if window.gameState exists
+  if (window.gameState) {
+    updateTacticalMap(window.gameState, window.assets || []);
+  }
   
   // Initialize spectrum analyzer
   updateSpectrumAnalyzer();
@@ -39,6 +44,9 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Set up animation loop for tactical map (slower refresh rate)
   animateTacticalMap();
+  
+  // Expose updateJammerAvailability function to window for global access
+  window.updateJammerAvailability = updateJammerAvailability;
   
   // Store game engine reference and set up event listeners when it's available
   const storeGameEngineRef = setInterval(() => {
@@ -74,10 +82,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // Update spectrum analyzer on window resize
     updateSpectrumAnalyzer();
     
-    // Update tactical map on window resize
-    updateTacticalMap(window.gameState, window.assets || []);
+    // Update tactical map on window resize if window.gameState exists
+    if (window.gameState) {
+      updateTacticalMap(window.gameState, window.assets || []);
+    }
   });
-});
+}
+
+// Initialize UI when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeUIComponents);
+} else {
+  // If DOMContentLoaded has already fired, run immediately
+  initializeUIComponents();
+}
 
 // Initialize panel minimize buttons
 function initMinimizeButtons() {
@@ -242,6 +260,9 @@ function updateJammerAvailability(jammersAvailable) {
     deployedElement.textContent = `${deployedJammers}/${totalJammers}`;
   }
 }
+
+// Make updateJammerAvailability function available globally for main.js to use
+window.updateJammerAvailability = updateJammerAvailability;
 
 // Constants for jammer counts
 const COUNT_MAP = {
