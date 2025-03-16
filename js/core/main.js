@@ -2679,7 +2679,19 @@ class GameEngine {
     
     // Add "Help" message for camera controls
     else if (key === 'h') {
-      this.showAlert('Camera Controls: WASD=move, QE=height, R=reset, F=wireframe, B=biome view, D=debug mode', 'info');
+      this.showAlert('Camera Controls: WASD=move, QE=height, R=reset, F=wireframe, B=biome view, D=debug mode, M=start mission', 'info');
+    }
+    
+    // Start mission with 'M' key
+    else if (key === 'm' || key === 'M') {
+      if (!gameState.missionActive) {
+        gameState.startMission();
+        this.showAlert('Mission initiated. Deploying assets and beginning deployment phase.', 'success');
+        // Create a deployment effect
+        this.createRFToggleEffect();
+      } else {
+        this.showAlert('Mission already in progress', 'info');
+      }
     }
   }
   
