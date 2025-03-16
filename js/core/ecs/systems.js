@@ -340,9 +340,13 @@ class RFPropagationSystem extends System {
       
       // Attach update function to material
       material.userData = {
-        update: function() {
-          this.uniforms.time.value = clock.getElapsedTime();
-        }
+        update: function(dt, mat) {
+          // Use material passed as argument to access uniforms
+          if (mat && mat.uniforms && mat.uniforms.time) {
+            mat.uniforms.time.value = clock.getElapsedTime();
+          }
+        },
+        material: material // Store reference to parent material
       };
       
       visualizationMesh = new THREE.Mesh(geometry, material);
@@ -366,16 +370,23 @@ class RFPropagationSystem extends System {
           initialScale: 0.1,
           speed: speed,
           timeOffset: delay,
-          update: function(delta) {
+          update: function(delta, ring) {
+            // Only proceed if we have a valid ring object
+            if (!ring) return;
+            
             const time = clock.getElapsedTime() + this.timeOffset;
             
-            // Pulsing scale based on sin wave
-            this.scale.x = 0.1 + Math.abs(Math.sin(time * this.speed)) * 2.5;
-            this.scale.y = 0.1 + Math.abs(Math.sin(time * this.speed)) * 2.5;
-            this.scale.z = 1;
+            // Pulsing scale based on sin wave - ensure ring has scale property
+            if (ring.scale) {
+              ring.scale.x = 0.1 + Math.abs(Math.sin(time * this.speed)) * 2.5;
+              ring.scale.y = 0.1 + Math.abs(Math.sin(time * this.speed)) * 2.5;
+              ring.scale.z = 1;
+            }
             
-            // Pulsing opacity
-            this.material.opacity = 0.4 * (1 - Math.abs(Math.sin(time * this.speed)) / 3);
+            // Pulsing opacity - ensure ring has material property
+            if (ring.material) {
+              ring.material.opacity = 0.4 * (1 - Math.abs(Math.sin(time * this.speed)) / 3);
+            }
           }
         };
         
@@ -431,9 +442,12 @@ class RFPropagationSystem extends System {
       particles.userData = {
         startPositions: particlePositions.slice(), // Clone initial positions
         speeds: Array(particleCount).fill().map(() => 0.2 + Math.random() * 0.3),
-        update: function(delta) {
+        update: function(delta, obj) {
+          // Ensure we have a valid object with geometry
+          if (!obj || !obj.geometry || !obj.geometry.attributes || !obj.geometry.attributes.position) return;
+          
           const time = clock.getElapsedTime();
-          const positions = this.geometry.attributes.position.array;
+          const positions = obj.geometry.attributes.position.array;
           
           for (let i = 0; i < particleCount; i++) {
             // Create pulsing movement based on sine waves with different frequencies
@@ -448,13 +462,20 @@ class RFPropagationSystem extends System {
           }
           
           // Make particles "breathe" by adjusting size
-          const sizes = this.geometry.attributes.size.array;
-          for (let i = 0; i < particleCount; i++) {
-            sizes[i] = 2 + Math.random() * 3 + Math.sin(time * 2 + i) * 1;
+          if (obj.geometry.attributes.size && obj.geometry.attributes.size.array) {
+            const sizes = obj.geometry.attributes.size.array;
+            for (let i = 0; i < particleCount; i++) {
+              sizes[i] = 2 + Math.random() * 3 + Math.sin(time * 2 + i) * 1;
+            }
           }
           
-          this.geometry.attributes.position.needsUpdate = true;
-          this.geometry.attributes.size.needsUpdate = true;
+          // Set needsUpdate flags
+          if (obj.geometry.attributes.position) {
+            obj.geometry.attributes.position.needsUpdate = true;
+          }
+          if (obj.geometry.attributes.size) {
+            obj.geometry.attributes.size.needsUpdate = true;
+          }
         }
       };
       
@@ -468,9 +489,12 @@ class RFPropagationSystem extends System {
       
       // Animation for light
       light.userData = {
-        update: function(delta) {
+        update: function(delta, light) {
+          // Ensure we have a valid light object
+          if (!light) return;
+          
           const time = clock.getElapsedTime();
-          this.intensity = 0.6 + Math.sin(time * 2) * 0.2;
+          light.intensity = 0.6 + Math.sin(time * 2) * 0.2;
         }
       };
       
@@ -579,9 +603,13 @@ class RFPropagationSystem extends System {
       
       // Attach update function to material
       material.userData = {
-        update: function() {
-          this.uniforms.time.value = clock.getElapsedTime();
-        }
+        update: function(dt, mat) {
+          // Use material passed as argument to access uniforms
+          if (mat && mat.uniforms && mat.uniforms.time) {
+            mat.uniforms.time.value = clock.getElapsedTime();
+          }
+        },
+        material: material // Store reference to parent material
       };
       
       visualizationMesh = new THREE.Mesh(geometry, material);
@@ -595,9 +623,12 @@ class RFPropagationSystem extends System {
       
       // Animation for light
       light.userData = {
-        update: function(delta) {
+        update: function(delta, light) {
+          // Ensure we have a valid light object
+          if (!light) return;
+          
           const time = clock.getElapsedTime();
-          this.intensity = 1.5 + Math.sin(time * 3) * 0.5;
+          light.intensity = 1.5 + Math.sin(time * 3) * 0.5;
         }
       };
       
@@ -696,9 +727,12 @@ class RFPropagationSystem extends System {
       beamParticles.userData = {
         originalPositions: beamPositions.slice(),
         speeds: Array(beamParticleCount).fill().map(() => Math.random() * 0.3 + 0.1),
-        update: function(delta) {
+        update: function(delta, particles) {
+          // Ensure we have a valid particles object with geometry
+          if (!particles || !particles.geometry || !particles.geometry.attributes || !particles.geometry.attributes.position) return;
+          
           const time = clock.getElapsedTime();
-          const positions = this.geometry.attributes.position.array;
+          const positions = particles.geometry.attributes.position.array;
           
           // Update particle positions with flowing motion
           for (let i = 0; i < beamParticleCount; i++) {
@@ -730,18 +764,29 @@ class RFPropagationSystem extends System {
           }
           
           // Make sizes pulse slightly
-          const sizes = this.geometry.attributes.size.array;
-          for (let i = 0; i < beamParticleCount; i++) {
-            const progress = i / beamParticleCount;
-            sizes[i] = (1 - progress) * 6 + 2 + Math.sin(time * 3 + i * 0.2) * 1;
+          if (particles && particles.geometry && particles.geometry.attributes && 
+              particles.geometry.attributes.size && particles.geometry.attributes.size.array) {
+            const sizes = particles.geometry.attributes.size.array;
+            for (let i = 0; i < beamParticleCount; i++) {
+              const progress = i / beamParticleCount;
+              sizes[i] = (1 - progress) * 6 + 2 + Math.sin(time * 3 + i * 0.2) * 1;
+            }
           }
           
-          // Update shader time
-          this.material.uniforms.time.value = time;
+          // Update shader time - ensure particles object has material with uniforms
+          if (particles && particles.material && particles.material.uniforms && particles.material.uniforms.time) {
+            particles.material.uniforms.time.value = time;
+          }
           
           // Update geometry
-          this.geometry.attributes.position.needsUpdate = true;
-          this.geometry.attributes.size.needsUpdate = true;
+          if (particles && particles.geometry) {
+            if (particles.geometry.attributes.position) {
+              particles.geometry.attributes.position.needsUpdate = true;
+            }
+            if (particles.geometry.attributes.size) {
+              particles.geometry.attributes.size.needsUpdate = true;
+            }
+          }
         }
       };
       
@@ -762,15 +807,22 @@ class RFPropagationSystem extends System {
         ring.userData = {
           speed: speed,
           timeOffset: delay,
-          update: function(delta) {
+          update: function(delta, obj) {
+            // Ensure we have a valid object with material and scale
+            if (!obj) return;
+            
             const time = clock.getElapsedTime() + this.timeOffset;
             
-            // Pulsing opacity
-            this.material.opacity = opacity * (0.5 + Math.sin(time * this.speed) * 0.5);
+            // Pulsing opacity - ensure object has material
+            if (obj.material) {
+              obj.material.opacity = opacity * (0.5 + Math.sin(time * this.speed) * 0.5);
+            }
             
-            // Slight size variation
-            const scaleFactor = 1 + Math.sin(time * this.speed * 0.5) * 0.1;
-            this.scale.set(scaleFactor, scaleFactor, 1);
+            // Slight size variation - ensure object has scale
+            if (obj.scale) {
+              const scaleFactor = 1 + Math.sin(time * this.speed * 0.5) * 0.1;
+              obj.scale.set(scaleFactor, scaleFactor, 1);
+            }
           }
         };
         
@@ -1113,13 +1165,19 @@ class RFPropagationSystem extends System {
     this.visualizationObjects.forEach((mesh) => {
       // Update main mesh material if it has an update function
       if (mesh.material && mesh.material.userData && mesh.material.userData.update) {
-        mesh.material.userData.update(deltaTime);
+        // Pass the material as second argument so the update function can access uniforms
+        mesh.material.userData.update(deltaTime, mesh.material);
       }
       
       // Update child objects (rings, particles, etc.)
       mesh.children.forEach(child => {
         if (child.userData && child.userData.update) {
-          child.userData.update(deltaTime);
+          // Handle both update patterns - with and without material
+          if (child.material) {
+            child.userData.update(deltaTime, child);
+          } else {
+            child.userData.update(deltaTime);
+          }
         }
       });
     });
@@ -1334,12 +1392,18 @@ class JammerSystem extends System {
   constructor(entityManager) {
     super(entityManager);
     this.requiredComponents = [ComponentTypes.JAMMER, ComponentTypes.RF_TRANSMITTER];
+    
+    // Custom component storage for effects that aren't part of the official component types
+    this.customComponents = new Map();
   }
   
   processEntity(entityId, deltaTime) {
     const jammerComponent = this.entityManager.getComponent(entityId, ComponentTypes.JAMMER);
     const transmitterComponent = this.entityManager.getComponent(entityId, ComponentTypes.RF_TRANSMITTER);
     const visualComponent = this.entityManager.getComponent(entityId, ComponentTypes.VISUAL);
+    
+    // Ensure all required components exist
+    if (!jammerComponent || !transmitterComponent) return;
     
     // Update cooldown
     if (jammerComponent.cooldownRemaining > 0) {
@@ -1352,8 +1416,14 @@ class JammerSystem extends System {
       
       // Update cooldown visualization
       if (visualComponent && visualComponent.meshObject) {
-        // Calculate cooldown progress (0 to 1)
-        const cooldownDuration = CONFIG.jammers.types[jammerComponent.type].cooldown;
+        // Safely access jammer type configuration
+        const jammerType = jammerComponent.type || 'STANDARD';
+        
+        // Safely get cooldown duration
+        const cooldownConfig = CONFIG.jammers.types[jammerType];
+        if (!cooldownConfig) return;
+        
+        const cooldownDuration = cooldownConfig.cooldown || 5000; // Default 5s cooldown
         const cooldownProgress = jammerComponent.cooldownRemaining / cooldownDuration;
         
         // Apply pulsing effect to jammer during cooldown
@@ -1362,8 +1432,8 @@ class JammerSystem extends System {
           const pulseRate = 3; // Pulses per second
           const pulsePhase = (Math.sin(Date.now() * 0.01 * pulseRate) + 1) / 2; // 0 to 1
           
-          // Increase red component based on pulse
-          const baseColor = CONFIG.jammers.types[jammerComponent.type].color;
+          // Safely get base color
+          const baseColor = cooldownConfig.color || new THREE.Color(0x00ffff);
           const cooldownColor = new THREE.Color(
             Math.min(1.0, baseColor.r + 0.3 * pulsePhase),
             Math.max(0.0, baseColor.g - 0.2 * pulsePhase),
@@ -1380,7 +1450,8 @@ class JammerSystem extends System {
           this.removeCooldownIndicator(entityId);
           
           // Reset to base color
-          visualComponent.color = CONFIG.jammers.types[jammerComponent.type].color;
+          const baseColor = cooldownConfig.color || new THREE.Color(0x00ffff);
+          visualComponent.color = baseColor.getHex();
         }
       }
     }
@@ -1390,8 +1461,19 @@ class JammerSystem extends System {
     
     // Ensure transmitter settings match jammer configuration
     transmitterComponent.active = jammerComponent.active && jammerComponent.cooldownRemaining === 0;
-    transmitterComponent.frequency = jammerComponent.targetFrequency;
-    transmitterComponent.power = jammerComponent.powerLevel;
+    transmitterComponent.frequency = jammerComponent.targetFrequency || 2400; // Default frequency
+    transmitterComponent.power = jammerComponent.powerLevel || 1.0; // Default power
+    
+    // Initialize pulseParameters if it doesn't exist
+    if (!transmitterComponent.pulseParameters) {
+      transmitterComponent.pulseParameters = {
+        pulsing: false,
+        onTime: 200,
+        offTime: 800,
+        currentlyTransmitting: true,
+        timeSinceLastToggle: 0
+      };
+    }
     
     // Handle activation/deactivation effects
     if (wasActive !== transmitterComponent.active) {
@@ -1415,7 +1497,9 @@ class JammerSystem extends System {
       this.updatePulseEffect(entityId, deltaTime);
     } else {
       // Non-pulsing jammers
-      transmitterComponent.pulseParameters.pulsing = false;
+      if (transmitterComponent.pulseParameters) {
+        transmitterComponent.pulseParameters.pulsing = false;
+      }
       
       // Remove pulse effect if it exists
       this.removePulseEffect(entityId);
@@ -1430,15 +1514,20 @@ class JammerSystem extends System {
     const transformComponent = this.entityManager.getComponent(entityId, ComponentTypes.TRANSFORM);
     const jammerComponent = this.entityManager.getComponent(entityId, ComponentTypes.JAMMER);
     
-    if (!transformComponent) return;
+    if (!transformComponent || !jammerComponent) return;
     
     // Get position
     const position = transformComponent.position;
     
+    // Safely access jammer type configuration
+    const jammerType = jammerComponent.type || 'STANDARD';
+    const jammerColor = (CONFIG.jammers.types[jammerType] && CONFIG.jammers.types[jammerType].color) || 
+                       new THREE.Color(0x00ffff); // Default color if config is missing
+    
     // Create activation ring effect
     const ringGeometry = new THREE.RingGeometry(0, 10, 32);
     const ringMaterial = new THREE.MeshBasicMaterial({
-      color: CONFIG.jammers.types[jammerComponent.type].color,
+      color: jammerColor,
       transparent: true,
       opacity: 1.0,
       side: THREE.DoubleSide,
@@ -1524,7 +1613,7 @@ class JammerSystem extends System {
     const transformComponent = this.entityManager.getComponent(entityId, ComponentTypes.TRANSFORM);
     const jammerComponent = this.entityManager.getComponent(entityId, ComponentTypes.JAMMER);
     
-    if (!transformComponent) return;
+    if (!transformComponent || !jammerComponent) return;
     
     // Get position
     const position = transformComponent.position;
@@ -1554,9 +1643,14 @@ class JammerSystem extends System {
       particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
       particleGeometry.setAttribute('size', new THREE.BufferAttribute(particleSizes, 1));
       
+      // Safely access jammer type configuration
+      const jammerType = jammerComponent.type || 'STANDARD';
+      const jammerColor = (CONFIG.jammers.types[jammerType] && CONFIG.jammers.types[jammerType].color) || 
+                          new THREE.Color(0x00ffff); // Default color if config is missing
+      
       // Create particle material
       const particleMaterial = new THREE.PointsMaterial({
-        color: CONFIG.jammers.types[jammerComponent.type].color,
+        color: jammerColor,
         transparent: true,
         opacity: 0.7,
         size: 2,
@@ -1631,7 +1725,15 @@ class JammerSystem extends System {
     if (!transformComponent) return;
     
     // Get existing cooldown indicator or create new one
-    let indicator = this.entityManager.components.get(entityId, 'cooldownIndicator');
+    let entityComponents = this.customComponents.get(entityId);
+    
+    // Initialize entity components map if it doesn't exist
+    if (!entityComponents) {
+      entityComponents = new Map();
+      this.customComponents.set(entityId, entityComponents);
+    }
+    
+    let indicator = entityComponents.get('cooldownIndicator');
     
     if (!indicator) {
       // Create new indicator
@@ -1647,7 +1749,7 @@ class JammerSystem extends System {
       indicator.rotation.x = Math.PI / 2; // Flat on ground
       
       // Store reference
-      this.entityManager.components.set(entityId, 'cooldownIndicator', indicator);
+      entityComponents.set('cooldownIndicator', indicator);
       
       // Add to scene
       if (window.gameEngine && window.gameEngine.scene) {
@@ -1675,7 +1777,12 @@ class JammerSystem extends System {
   
   // Remove cooldown indicator
   removeCooldownIndicator(entityId) {
-    const indicator = this.entityManager.components.get(entityId, 'cooldownIndicator');
+    if (!this.customComponents.has(entityId)) return;
+    
+    const entityComponents = this.customComponents.get(entityId);
+    if (!entityComponents) return;
+    
+    const indicator = entityComponents.get('cooldownIndicator');
     
     if (indicator) {
       // Remove from scene
@@ -1692,7 +1799,12 @@ class JammerSystem extends System {
       }
       
       // Remove reference
-      this.entityManager.components.delete(entityId, 'cooldownIndicator');
+      entityComponents.delete('cooldownIndicator');
+      
+      // If no more custom components for this entity, remove the entity entry
+      if (entityComponents.size === 0) {
+        this.customComponents.delete(entityId);
+      }
     }
   }
   
@@ -1702,21 +1814,30 @@ class JammerSystem extends System {
     const jammerComponent = this.entityManager.getComponent(entityId, ComponentTypes.JAMMER);
     const transmitterComponent = this.entityManager.getComponent(entityId, ComponentTypes.RF_TRANSMITTER);
     
-    if (!transformComponent || !transmitterComponent.active) return;
+    if (!transformComponent || !transmitterComponent || !transmitterComponent.active) return;
     
     // Get existing pulse effect or create new one
-    let pulseEffect = this.entityManager.components.get(entityId, 'pulseEffect');
+    let entityComponents = this.customComponents.get(entityId);
+    
+    // Initialize entity components map if it doesn't exist
+    if (!entityComponents) {
+      entityComponents = new Map();
+      this.customComponents.set(entityId, entityComponents);
+    }
+    
+    let pulseEffect = entityComponents.get('pulseEffect');
     
     if (!pulseEffect) {
       // Create pulse effect container
       pulseEffect = {
         mesh: null,
         pulseTime: 0,
-        rings: []
+        rings: [],
+        lastPulseState: false
       };
       
       // Store reference
-      this.entityManager.components.set(entityId, 'pulseEffect', pulseEffect);
+      entityComponents.set('pulseEffect', pulseEffect);
     }
     
     // Update pulse timing
@@ -1736,17 +1857,27 @@ class JammerSystem extends System {
     // Update existing rings
     for (let i = pulseEffect.rings.length - 1; i >= 0; i--) {
       const ring = pulseEffect.rings[i];
+      if (!ring) continue;
       
       // Update ring properties
       ring.age += deltaTime;
       const progress = Math.min(ring.age / ring.lifespan, 1);
       
+      // Check if mesh exists
+      if (!ring.mesh) {
+        // If mesh is missing, remove the ring entry
+        pulseEffect.rings.splice(i, 1);
+        continue;
+      }
+      
       // Scale outward
       const scale = 1 + progress * 15;
       ring.mesh.scale.set(scale, scale, 1);
       
-      // Fade out
-      ring.mesh.material.opacity = 0.7 * (1 - progress);
+      // Fade out (check if material exists)
+      if (ring.mesh.material) {
+        ring.mesh.material.opacity = 0.7 * (1 - progress);
+      }
       
       // Remove completed rings
       if (progress >= 1) {
@@ -1756,8 +1887,8 @@ class JammerSystem extends System {
         }
         
         // Dispose resources
-        ring.mesh.geometry.dispose();
-        ring.mesh.material.dispose();
+        if (ring.mesh.geometry) ring.mesh.geometry.dispose();
+        if (ring.mesh.material) ring.mesh.material.dispose();
         
         // Remove from array
         pulseEffect.rings.splice(i, 1);
@@ -1768,14 +1899,26 @@ class JammerSystem extends System {
   // Create a new pulse ring
   createPulseRing(entityId, position) {
     const jammerComponent = this.entityManager.getComponent(entityId, ComponentTypes.JAMMER);
-    const pulseEffect = this.entityManager.components.get(entityId, 'pulseEffect');
     
+    if (!jammerComponent) return;
+    if (!this.customComponents.has(entityId)) return;
+    
+    const entityComponents = this.customComponents.get(entityId);
+    if (!entityComponents) return;
+    
+    const pulseEffect = entityComponents.get('pulseEffect');
     if (!pulseEffect) return;
     
     // Create ring geometry
     const geometry = new THREE.RingGeometry(1, 2, 32);
+    
+    // Safely access jammer type configuration
+    const jammerType = jammerComponent.type || 'STANDARD';
+    const jammerColor = (CONFIG.jammers.types[jammerType] && CONFIG.jammers.types[jammerType].color) || 
+                       new THREE.Color(0x00ffff); // Default color if config is missing
+    
     const material = new THREE.MeshBasicMaterial({
-      color: CONFIG.jammers.types[jammerComponent.type].color,
+      color: jammerColor,
       transparent: true,
       opacity: 0.7,
       side: THREE.DoubleSide,
@@ -1801,7 +1944,12 @@ class JammerSystem extends System {
   
   // Remove pulse effect
   removePulseEffect(entityId) {
-    const pulseEffect = this.entityManager.components.get(entityId, 'pulseEffect');
+    if (!this.customComponents.has(entityId)) return;
+    
+    const entityComponents = this.customComponents.get(entityId);
+    if (!entityComponents) return;
+    
+    const pulseEffect = entityComponents.get('pulseEffect');
     
     if (pulseEffect) {
       // Remove all rings
@@ -1812,15 +1960,22 @@ class JammerSystem extends System {
         }
         
         // Dispose resources
-        ring.mesh.geometry.dispose();
-        ring.mesh.material.dispose();
+        if (ring.mesh) {
+          if (ring.mesh.geometry) ring.mesh.geometry.dispose();
+          if (ring.mesh.material) ring.mesh.material.dispose();
+        }
       }
       
       // Clear array
       pulseEffect.rings = [];
       
       // Remove reference
-      this.entityManager.components.delete(entityId, 'pulseEffect');
+      entityComponents.delete('pulseEffect');
+      
+      // If no more custom components for this entity, remove the entity entry
+      if (entityComponents.size === 0) {
+        this.customComponents.delete(entityId);
+      }
     }
   }
   
@@ -1830,19 +1985,32 @@ class JammerSystem extends System {
     const jammerComponent = this.entityManager.getComponent(entityId, ComponentTypes.JAMMER);
     const transmitterComponent = this.entityManager.getComponent(entityId, ComponentTypes.RF_TRANSMITTER);
     
-    if (!transformComponent) return;
+    if (!transformComponent || !jammerComponent || !transmitterComponent) return;
     
     // Check if jammer is active
     const isActive = transmitterComponent.active;
     
     // Get existing lighting or create new
-    let jammerLighting = this.entityManager.components.get(entityId, 'jammerLighting');
+    let entityComponents = this.customComponents.get(entityId);
+    
+    // Initialize entity components map if it doesn't exist
+    if (!entityComponents) {
+      entityComponents = new Map();
+      this.customComponents.set(entityId, entityComponents);
+    }
+    
+    let jammerLighting = entityComponents.get('jammerLighting');
     
     // Create light if needed
     if (isActive && !jammerLighting) {
+      // Safely access jammer type configuration
+      const jammerType = jammerComponent.type || 'STANDARD';
+      const jammerColor = (CONFIG.jammers.types[jammerType] && CONFIG.jammers.types[jammerType].color) || 
+                         new THREE.Color(0x00ffff); // Default color if config is missing
+      
       // Create point light
       const light = new THREE.PointLight(
-        CONFIG.jammers.types[jammerComponent.type].color,
+        jammerColor,
         1.5, // Intensity
         30  // Range
       );
@@ -1865,10 +2033,10 @@ class JammerSystem extends System {
       
       // Store reference
       jammerLighting = { light };
-      this.entityManager.components.set(entityId, 'jammerLighting', jammerLighting);
+      entityComponents.set('jammerLighting', jammerLighting);
     } 
     // Update existing light
-    else if (isActive && jammerLighting) {
+    else if (isActive && jammerLighting && jammerLighting.light) {
       const light = jammerLighting.light;
       
       // Update position
@@ -1878,23 +2046,30 @@ class JammerSystem extends System {
         transformComponent.position.z + 2 // Above jammer
       );
       
+      // Safely access jammer type configuration
+      const jammerType = jammerComponent.type || 'STANDARD';
+      const jammerColor = (CONFIG.jammers.types[jammerType] && CONFIG.jammers.types[jammerType].color) || 
+                         new THREE.Color(0x00ffff); // Default color if config is missing
+      
       // Update light color if frequency changed
-      light.color.set(CONFIG.jammers.types[jammerComponent.type].color);
+      light.color.set(jammerColor);
       
       // Add subtle flicker effect
-      light.userData.time += deltaTime;
-      const flicker = Math.sin(light.userData.time * 5) * 0.1 + 
-                      Math.sin(light.userData.time * 13) * 0.05 +
-                      Math.sin(light.userData.time * 27) * 0.025;
-      
-      light.intensity = light.userData.baseIntensity * (1 + flicker);
-      
-      // For pulsing jammers, sync light with pulse
-      if (jammerComponent.type === 'PULSE') {
-        if (transmitterComponent.pulseParameters.currentlyTransmitting) {
-          light.intensity = light.userData.baseIntensity * 2.5;
-        } else {
-          light.intensity = light.userData.baseIntensity * 0.3;
+      if (light.userData) {
+        light.userData.time = (light.userData.time || 0) + deltaTime;
+        const flicker = Math.sin(light.userData.time * 5) * 0.1 + 
+                        Math.sin(light.userData.time * 13) * 0.05 +
+                        Math.sin(light.userData.time * 27) * 0.025;
+        
+        light.intensity = (light.userData.baseIntensity || 1.5) * (1 + flicker);
+        
+        // For pulsing jammers, sync light with pulse
+        if (jammerType === 'PULSE') {
+          if (transmitterComponent.pulseParameters && transmitterComponent.pulseParameters.currentlyTransmitting) {
+            light.intensity = (light.userData.baseIntensity || 1.5) * 2.5;
+          } else {
+            light.intensity = (light.userData.baseIntensity || 1.5) * 0.3;
+          }
         }
       }
     }
@@ -1906,7 +2081,12 @@ class JammerSystem extends System {
       }
       
       // Remove reference
-      this.entityManager.components.delete(entityId, 'jammerLighting');
+      entityComponents.delete('jammerLighting');
+      
+      // If no more custom components for this entity, remove the entity entry
+      if (entityComponents.size === 0) {
+        this.customComponents.delete(entityId);
+      }
     }
   }
   
