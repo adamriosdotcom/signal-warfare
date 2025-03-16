@@ -63,7 +63,12 @@ class GameEngine {
     this.lastTime = performance.now();
     requestAnimationFrame(this.gameLoop.bind(this));
     
-    console.log('ECHO ZERO initialized');
+    console.log('ECHO ZERO initialized with 3D terrain');
+    
+    // Show welcome message with navigation tips for 3D terrain
+    setTimeout(() => {
+      this.showAlert('Welcome to ECHO ZERO with 3D terrain! Press H for control help.', 'info');
+    }, 1500);
   }
   
   // Initialize THREE.js
@@ -72,13 +77,15 @@ class GameEngine {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x0c1116);
     
-    // Create camera
+    // Create camera with better positioning for 3D terrain
     this.camera = new THREE.PerspectiveCamera(
-      60, window.innerWidth / window.innerHeight, 0.1, 20000
+      45, window.innerWidth / window.innerHeight, 10, 30000 // Lower FOV, higher far plane
     );
-    // Position camera to view terrain from an angle (elevated position)
-    this.camera.position.set(0, -2000, 1500);
+    // Position camera to view terrain from a dramatic angle
+    this.camera.position.set(0, -1500, 2000); // More elevation for better terrain viewing
     this.camera.lookAt(0, 0, 0);
+    
+    console.log("Camera positioned for 3D terrain view");
     
     // Create renderer
     const container = document.getElementById('battlefield-view');
@@ -451,15 +458,18 @@ class GameEngine {
     // Generate terrain height map and texture data
     const terrainData = this.generateTerrainData(geometry);
     
-    // Create terrain material with vertex colors for biome visualization
-    const material = new THREE.MeshPhongMaterial({
-      color: 0x1e293b,
-      shininess: 0.1,
+    // Create terrain material that showcases the 3D features and biome colors
+    const material = new THREE.MeshStandardMaterial({
+      color: 0xffffff, // White base to show vertex colors properly
+      metalness: 0.0,  // Non-metallic terrain
+      roughness: 1.0,  // Very rough surface
       flatShading: false, // Enable smooth shading
       wireframe: false,
       side: THREE.DoubleSide,
-      vertexColors: true // Enable vertex colors for biome visualization
+      vertexColors: true // Enable vertex colors for biome visualization - critical!
     });
+    
+    console.log("Created enhanced terrain material with vertex colors enabled");
     
     // Create terrain mesh
     this.terrain = new THREE.Mesh(geometry, material);
@@ -489,15 +499,17 @@ class GameEngine {
   
   // Generate terrain data (height and biome information)
   generateTerrainData(geometry) {
+    console.log("Generating enhanced 3D terrain data");
+    
     // 2D arrays to store height and biome data
     const gridSize = Math.sqrt(geometry.attributes.position.count);
     const heightData = new Array(gridSize).fill().map(() => new Array(gridSize).fill(0));
     const biomeData = new Array(gridSize).fill().map(() => new Array(gridSize).fill('OPEN'));
     
-    // Scale factors for noise
-    const mountainScale = 0.0005;
-    const hillScale = 0.001;
-    const detailScale = 0.01;
+    // Scale factors for noise - increase values for more dramatic terrain
+    const mountainScale = 0.0003; // Larger scale mountains
+    const hillScale = 0.0008;    // More defined hills
+    const detailScale = 0.005;   // Less micro-detail to emphasize larger features
     
     // We'll use simple mathematical functions to simulate noise
     const vertices = geometry.attributes.position.array;
@@ -508,77 +520,85 @@ class GameEngine {
       const x = vertices[i];
       const z = vertices[i + 2];
       
-      // Index in the grid
+      // Index in the grid - ensure it's within bounds
       const ix = Math.floor((x / CONFIG.terrain.width + 0.5) * (gridSize - 1));
       const iz = Math.floor((z / CONFIG.terrain.height + 0.5) * (gridSize - 1));
       
       // Generate height with multiple noise layers
-      // Base mountain range layer
+      // Base mountain range layer - much more dramatic
       const mountainNoise = this.simpleNoise(x * mountainScale, z * mountainScale);
       
       // Hills layer
-      const hillNoise = this.simpleNoise(x * hillScale, z * hillScale) * 0.3;
+      const hillNoise = this.simpleNoise(x * hillScale, z * hillScale) * 0.4;
       
       // Small details layer
-      const detailNoise = this.simpleNoise(x * detailScale, z * detailScale) * 0.05;
+      const detailNoise = this.simpleNoise(x * detailScale, z * detailScale) * 0.1;
+      
+      // Make mountain formations more dramatic with some ridges
+      const ridgeFactor = Math.pow(Math.abs(0.5 - mountainNoise) * 2, 1.5);
       
       // Valley in the middle - create a large depression
       const centerX = 0;
       const centerZ = 0;
       const distanceFromCenter = Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(z - centerZ, 2));
-      const valleyFactor = Math.max(0, 1 - Math.pow(distanceFromCenter / 2000, 2));
-      const valleyDepression = valleyFactor * 50;
+      const valleyFactor = Math.max(0, 1 - Math.pow(distanceFromCenter / 1500, 2));
+      const valleyDepression = valleyFactor * 100; // Deeper valley
       
       // River system - create a meandering river
-      const riverWidth = 100;
-      const riverDepth = 30;
-      const riverMeander = Math.sin(z * 0.001) * 500; // Meandering factor
+      const riverWidth = 150;
+      const riverDepth = 60; // Deeper river
+      const riverMeander = Math.sin(z * 0.001) * 500 + Math.cos(z * 0.0005) * 250; // More meandering
       const distanceFromRiver = Math.abs(x - riverMeander);
       const riverFactor = Math.max(0, 1 - distanceFromRiver / riverWidth);
       const riverDepression = riverFactor * riverDepth;
       
-      // Combine all height factors
-      let height = mountainNoise * CONFIG.terrain.maxElevation * 0.8 + // Main mountains
-                 hillNoise * CONFIG.terrain.maxElevation * 0.5 +    // Hills
-                 detailNoise * CONFIG.terrain.maxElevation * 0.1 -  // Small details
-                 valleyDepression -                                  // Valley
-                 riverDepression;                                    // River
+      // Combine all height factors - scale up for more dramatic heights
+      let height = (mountainNoise * CONFIG.terrain.maxElevation * 1.5 - ridgeFactor * 60 + // Main mountains with ridges
+                   hillNoise * CONFIG.terrain.maxElevation * 0.7 +    // Hills
+                   detailNoise * CONFIG.terrain.maxElevation * 0.2 -  // Small details
+                   valleyDepression -                                  // Valley
+                   riverDepression) * 3;                              // River - scale everything up
+      
+      // Add occasional spikes in mountain areas for more interesting terrain
+      if (mountainNoise > 0.6 && Math.random() < 0.02) {
+        height += Math.random() * 150;
+      }
       
       // Ensure minimum height (for water bodies)
-      height = Math.max(-20, height);
+      height = Math.max(-40, height); // Deeper water
       
       // Store height data in bounds-checked manner
       if (ix >= 0 && ix < gridSize && iz >= 0 && iz < gridSize) {
         heightData[ix][iz] = height;
       }
       
-      // Determine biome type based on height and position
+      // Determine biome type based on height and position - more extreme coloring
       let biomeType = 'OPEN'; // Default
-      let biomeColor = new THREE.Color(0.3, 0.5, 0.2); // Default green
+      let biomeColor = new THREE.Color(0.4, 0.6, 0.3); // Brighter green
       
       if (height < 0) {
-        // Water
+        // Water - more vibrant blue
         biomeType = 'WATER';
-        biomeColor = new THREE.Color(0.1, 0.2, 0.8);
-      } else if (height < 20) {
+        biomeColor = new THREE.Color(0.0, 0.4, 0.8);
+      } else if (height < 40) {
         // Lowlands - mix of open areas and forest
         const forestNoise = this.simpleNoise(x * 0.002, z * 0.002);
-        if (forestNoise > 0.2) {
+        if (forestNoise > 0.4) {
           biomeType = 'FOREST';
-          biomeColor = new THREE.Color(0.1, 0.4, 0.1);
+          biomeColor = new THREE.Color(0.1, 0.5, 0.1); // More vibrant forest
         }
-      } else if (height < 100) {
+      } else if (height < 150) {
         // Hills - mostly forest
         biomeType = 'FOREST';
-        biomeColor = new THREE.Color(0.1, 0.4, 0.1);
-      } else if (height < 300) {
+        biomeColor = new THREE.Color(0.05, 0.4, 0.05); // Darker forest for hills
+      } else if (height < 400) {
         // Mountains - rocky terrain
         biomeType = 'URBAN'; // Using urban for rocky areas
-        biomeColor = new THREE.Color(0.5, 0.5, 0.5);
+        biomeColor = new THREE.Color(0.6, 0.6, 0.6); // Lighter gray
       } else {
         // High mountains - snow-capped
         biomeType = 'OPEN'; // Representing snow
-        biomeColor = new THREE.Color(0.9, 0.9, 0.9);
+        biomeColor = new THREE.Color(1.0, 1.0, 1.0); // Pure white for snow
       }
       
       // Store biome data in bounds-checked manner
@@ -604,6 +624,7 @@ class GameEngine {
     // Compute normals for proper lighting
     geometry.computeVertexNormals();
     
+    console.log("3D terrain generation complete");
     return { heightData, biomeData };
   }
   
@@ -1116,13 +1137,44 @@ class GameEngine {
       // Toggle between normal and biome coloring
       if (this.terrain && this.terrain.material) {
         this.terrain.material.vertexColors = !this.terrain.material.vertexColors;
+        if (!this.terrain.material.vertexColors) {
+          // Reset to base color
+          this.terrain.material.color.set(0x1e293b);
+        } else {
+          // Set to white to show vertex colors properly
+          this.terrain.material.color.set(0xffffff);
+        }
         this.showAlert(`Biome visualization ${this.terrain.material.vertexColors ? 'enabled' : 'disabled'}`, 'info');
+      }
+    }
+    
+    // Debug terrain features
+    else if (key === 'd') {
+      // Toggle between different rendering modes to debug terrain
+      if (this.terrain && this.terrain.material) {
+        // Cycle through: normal > wireframe > flat shading > normal
+        if (!this.terrain.material.wireframe && !this.terrain.material.flatShading) {
+          // Switch to wireframe
+          this.terrain.material.wireframe = true;
+          this.showAlert('Terrain debug: Wireframe mode', 'info');
+        } else if (this.terrain.material.wireframe) {
+          // Switch to flat shading
+          this.terrain.material.wireframe = false;
+          this.terrain.material.flatShading = true;
+          this.terrain.material.needsUpdate = true;
+          this.showAlert('Terrain debug: Flat shading mode', 'info');
+        } else {
+          // Back to normal
+          this.terrain.material.flatShading = false;
+          this.terrain.material.needsUpdate = true;
+          this.showAlert('Terrain debug: Normal rendering mode', 'info');
+        }
       }
     }
     
     // Add "Help" message for camera controls
     else if (key === 'h') {
-      this.showAlert('Camera Controls: WASD to move, QE to adjust height, R to reset, F for wireframe, B for biome view', 'info');
+      this.showAlert('Camera Controls: WASD=move, QE=height, R=reset, F=wireframe, B=biome view, D=debug mode', 'info');
     }
   }
   
@@ -1276,10 +1328,10 @@ class GameEngine {
       this.cameraState.rotationAngle = 0;
       
       // Set camera position for better 3D terrain view
-      this.camera.position.set(0, -2000, 1500);
+      this.camera.position.set(0, -1500, 2000);
       this.camera.lookAt(this.cameraState.target);
       
-      this.showAlert('Camera reset to overview position', 'info');
+      this.showAlert('Camera reset to terrain overview position', 'info');
     }
   }
   
