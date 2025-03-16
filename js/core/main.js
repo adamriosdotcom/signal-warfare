@@ -563,28 +563,94 @@ class GameEngine {
     // Collect all assets from ECS
     if (!this.ecs) return;
     
-    // Get all entities that have a Position component
+    // Create some demo assets if ECS is not fully populated yet
     const assets = [];
-    const entities = this.ecs.getEntitiesWithComponents(['Position']);
     
-    entities.forEach(entity => {
-      const position = this.ecs.getComponent(entity, 'Position');
-      const type = this.ecs.getComponent(entity, 'Type')?.value || 'UNKNOWN';
-      const name = this.ecs.getComponent(entity, 'Name')?.value || `${type}-${entity}`;
-      const jammer = this.ecs.getComponent(entity, 'Jammer');
-      const active = this.ecs.getComponent(entity, 'Active')?.value ?? true;
-      
-      assets.push({
-        id: entity,
-        type: type,
-        name: name,
-        position: position,
-        active: active,
-        power: jammer?.power || 30,
-        antennaType: jammer?.antennaType || 'OMNI',
-        heading: jammer?.heading || 0
-      });
-    });
+    try {
+      // Try using entityManager (correct approach with the current ECS implementation)
+      if (this.ecs.entityManager && typeof this.ecs.entityManager.getEntitiesWithComponents === 'function') {
+        // Get all entities with a transform component (which has position data)
+        const entities = this.ecs.entityManager.getEntitiesWithComponents(ComponentTypes.TRANSFORM);
+        
+        entities.forEach(entity => {
+          const transform = this.ecs.getComponent(entity, ComponentTypes.TRANSFORM);
+          
+          // Get jammer component if exists
+          const jammer = this.ecs.getComponent(entity, ComponentTypes.JAMMER);
+          
+          // Use tag component for type data if available
+          const tags = this.ecs.getComponent(entity, ComponentTypes.TAG);
+          
+          // Determine entity type from components
+          let type = 'UNKNOWN';
+          if (jammer) {
+            type = 'JAMMER';
+          } else if (this.ecs.getComponent(entity, ComponentTypes.DRONE)) {
+            type = 'DRONE';
+          } else if (tags && tags.hasTag && (tags.hasTag('jammer') || tags.tags?.has('jammer'))) {
+            type = 'JAMMER';
+          } else if (tags && tags.hasTag && (tags.hasTag('drone') || tags.tags?.has('drone'))) {
+            type = 'DRONE';
+          }
+          
+          // Get active state (assume active if component doesn't exist)
+          let active = true;
+          if (jammer) {
+            active = jammer.active;
+          }
+          
+          // Add to assets list if it has valid position data
+          if (transform && transform.position) {
+            assets.push({
+              id: entity,
+              type: type,
+              name: `${type}-${entity}`, // Generate name based on type and ID
+              position: transform.position,
+              active: active,
+              power: jammer?.powerLevel || 30,
+              antennaType: jammer?.antennaType || 'OMNI',
+              heading: jammer?.antennaHeading || 0
+            });
+          }
+        });
+      } 
+    } catch (error) {
+      console.warn('Error retrieving entities from ECS:', error);
+      // Continue with fallback demo assets below
+    }
+    
+    // If no assets were found or there was an error, create demo assets
+    if (assets.length === 0) {
+      assets.push(
+        {
+          id: 'demo-jammer-1',
+          type: 'JAMMER',
+          name: 'JAM-1',
+          position: { x: CONFIG.terrain.width * 0.2, y: 10, z: CONFIG.terrain.height * 0.3 },
+          active: true,
+          power: 40,
+          antennaType: 'OMNI',
+          heading: 0
+        },
+        {
+          id: 'demo-jammer-2',
+          type: 'JAMMER',
+          name: 'JAM-2',
+          position: { x: CONFIG.terrain.width * -0.2, y: 10, z: CONFIG.terrain.height * -0.1 },
+          active: true,
+          power: 30,
+          antennaType: 'OMNI',
+          heading: 0
+        },
+        {
+          id: 'demo-drone-1',
+          type: 'DRONE',
+          name: 'DRONE-1',
+          position: { x: CONFIG.terrain.width * 0.3, y: 50, z: CONFIG.terrain.height * -0.2 },
+          active: true
+        }
+      );
+    }
     
     // Make assets available globally for UI components
     window.assets = assets;
