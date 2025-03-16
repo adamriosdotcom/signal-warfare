@@ -2190,12 +2190,16 @@ class GameEngine {
     const raycaster = new THREE.Raycaster();
     raycaster.setFromCamera(this.mouse.position, this.camera);
     
-    // Check intersection with terrain
-    const intersects = raycaster.intersectObject(this.terrain);
+    // Check intersection with terrain (try both terrains)
+    const intersects = raycaster.intersectObjects([this.terrain, this.terrain2]);
     
     if (intersects.length > 0) {
       // Update world position
       this.mouse.worldPosition = intersects[0].point;
+      
+      // Adjust Y position to account for terrain height adjustment
+      // We need to add a small offset to ensure jammers are placed on top of the terrain
+      this.mouse.worldPosition.y += 5; // Add 5 units offset to ensure visibility
     }
   }
   
@@ -2881,6 +2885,9 @@ class GameEngine {
     const particleGeometry = new THREE.BufferGeometry();
     const particlePositions = new Float32Array(particleCount * 3);
     
+    // Make sure the deployment effect position is consistent with the jammer
+    const effectPosition = { ...position };
+    
     // Initialize particles in a circle around jammer
     for (let i = 0; i < particleCount; i++) {
       const angle = (i / particleCount) * Math.PI * 2;
@@ -3080,14 +3087,18 @@ class GameEngine {
       }
     });
     
-    // Update vaporwave terrain animation
-    if (this.terrain && this.terrain2 && this.terrainHeight) {
+    // Update vaporwave terrain animation only when mission is not active
+    if (this.terrain && this.terrain2 && this.terrainHeight && !gameState.missionActive) {
       const speed = 0.04; // Slightly slower for smoother effect with larger terrain
       
       // When the first terrain reaches the end, reset it
       this.terrain.position.z = (elapsedTime * this.terrainHeight * speed) % this.terrainHeight;
       // Position the second terrain behind the first
       this.terrain2.position.z = ((elapsedTime * this.terrainHeight * speed) % this.terrainHeight) - this.terrainHeight;
+    } else if (this.terrain && this.terrain2 && gameState.missionActive) {
+      // Stop terrain at fixed positions once game starts
+      this.terrain.position.z = 0;
+      this.terrain2.position.z = -this.terrainHeight;
     }
     
     // Render scene with post-processing if available
