@@ -567,17 +567,19 @@ class GameEngine {
     // Create displacement map for terrain edges
     const displacementTexture = this.createDisplacementMap(resolution);
     
-    // Add material with vaporwave aesthetic
+    // Add material with enhanced vaporwave aesthetic
     const material = new THREE.MeshStandardMaterial({
       map: gridTexture,
       displacementMap: displacementTexture,
-      displacementScale: 250,
+      displacementScale: 350, // Increased displacement for more pronounced terrain
       metalnessMap: metalnessTexture,
-      metalness: 0.96,
-      roughness: 0.5,
+      metalness: 0.9,
+      roughness: 0.4,
       emissive: 0x1a0033,
       emissiveIntensity: 0.05,
-      side: THREE.DoubleSide
+      side: THREE.DoubleSide,
+      normalScale: new THREE.Vector2(1.5, 1.5), // Enhance surface detail
+      wireframe: false
     });
     
     console.log("Created vaporwave terrain material");
@@ -604,11 +606,8 @@ class GameEngine {
     this.scene.add(this.terrain);
     this.scene.add(this.terrain2);
     
-    // Add spotlights for vaporwave lighting
+    // Add spotlights for vaporwave lighting with enhanced colors
     this.createVaporwaveLighting();
-    
-    // Create "sun" or "moon" for vaporwave scene
-    this.createVaporwaveSun();
     
     // Store terrain for animation
     this.visualizationObjects.set('vaporwave-terrain1', this.terrain);
@@ -620,51 +619,60 @@ class GameEngine {
     console.log("Vaporwave 3D terrain creation complete");
   }
   
-  // Create vaporwave lighting with colored spotlights
+  // Create enhanced vaporwave lighting with colored spotlights
   createVaporwaveLighting() {
     // Add ambient light for base visibility
     const ambientLight = new THREE.AmbientLight(0x111111, 0.5);
     this.scene.add(ambientLight);
     
-    // Add right spotlight with pinkish/red color
-    const spotlightRight = new THREE.SpotLight('#d53c3d', 20, CONFIG.terrain.width, Math.PI * 0.1, 0.25);
+    // Add right spotlight with pinkish/red color (brighter)
+    const spotlightRight = new THREE.SpotLight('#ff3366', 25, CONFIG.terrain.width * 1.5, Math.PI * 0.1, 0.25);
     spotlightRight.position.set(CONFIG.terrain.width * 0.25, 800, 500);
     spotlightRight.target.position.set(-CONFIG.terrain.width * 0.25, 0, 0);
     this.scene.add(spotlightRight);
     this.scene.add(spotlightRight.target);
     
-    // Add left spotlight with pinkish/red color
-    const spotlightLeft = new THREE.SpotLight('#d53c3d', 20, CONFIG.terrain.width, Math.PI * 0.1, 0.25);
+    // Add left spotlight with cyan/blue color for contrast
+    const spotlightLeft = new THREE.SpotLight('#00ccff', 25, CONFIG.terrain.width * 1.5, Math.PI * 0.1, 0.25);
     spotlightLeft.position.set(-CONFIG.terrain.width * 0.25, 800, 500);
     spotlightLeft.target.position.set(CONFIG.terrain.width * 0.25, 0, 0);
     this.scene.add(spotlightLeft);
     this.scene.add(spotlightLeft.target);
+    
+    // Add front spotlight with purple tone
+    const spotlightFront = new THREE.SpotLight('#cc33ff', 15, CONFIG.terrain.width * 2, Math.PI * 0.15, 0.5);
+    spotlightFront.position.set(0, 600, 1000);
+    spotlightFront.target.position.set(0, 0, -CONFIG.terrain.height * 0.5);
+    this.scene.add(spotlightFront);
+    this.scene.add(spotlightFront.target);
+    
+    // Add some distant point lights for additional highlights
+    const colors = [0xff00ff, 0x00ffff, 0xff3366];
+    for (let i = 0; i < 3; i++) {
+      const pointLight = new THREE.PointLight(colors[i], 5, CONFIG.terrain.width);
+      const angle = (i / 3) * Math.PI * 2;
+      const distance = CONFIG.terrain.width * 0.6;
+      pointLight.position.set(
+        Math.cos(angle) * distance,
+        300 + Math.sin(i * 5) * 100,
+        -CONFIG.terrain.height * 0.5 + Math.sin(angle) * distance
+      );
+      this.scene.add(pointLight);
+      
+      // Add light animation
+      this.visualizationObjects.set(`point-light-${i}`, {
+        userData: {
+          update: (deltaTime) => {
+            const time = deltaTime * 0.3;
+            const y = 300 + Math.sin(time + i) * 100;
+            pointLight.position.y = y;
+          }
+        }
+      });
+    }
   }
   
-  // Create vaporwave sun/moon
-  createVaporwaveSun() {
-    const sunGeometry = new THREE.CircleGeometry(400, 32);
-    const sunMaterial = new THREE.MeshBasicMaterial({ 
-      color: 0xff1a75,
-      transparent: true,
-      opacity: 0.85
-    });
-    
-    const sun = new THREE.Mesh(sunGeometry, sunMaterial);
-    sun.position.set(0, 300, -CONFIG.terrain.height);
-    
-    this.scene.add(sun);
-    this.visualizationObjects.set('vaporwave-sun', sun);
-    
-    // Add sun animation
-    sun.userData = {
-      update: (deltaTime, object) => {
-        object.position.y = 300 + Math.sin(deltaTime * 0.2) * 30;
-      }
-    };
-  }
-  
-  // Create grid texture for vaporwave aesthetic
+  // Create enhanced grid texture for vaporwave aesthetic
   createVaporwaveGridTexture(resolution) {
     const textureSize = 1024;
     const canvas = document.createElement('canvas');
@@ -672,33 +680,84 @@ class GameEngine {
     canvas.height = textureSize;
     const ctx = canvas.getContext('2d');
     
-    // Fill background with dark purple
-    ctx.fillStyle = '#0a001a';
+    // Fill background with deep blue-purple gradient
+    const bgGradient = ctx.createLinearGradient(0, 0, 0, textureSize);
+    bgGradient.addColorStop(0, '#0a001a');
+    bgGradient.addColorStop(1, '#000033');
+    ctx.fillStyle = bgGradient;
     ctx.fillRect(0, 0, textureSize, textureSize);
+    
+    // Add some subtle background texture
+    ctx.globalAlpha = 0.1;
+    for (let i = 0; i < 2000; i++) {
+      const x = Math.random() * textureSize;
+      const y = Math.random() * textureSize;
+      const size = Math.random() * 2;
+      ctx.fillStyle = Math.random() > 0.5 ? '#ffffff' : '#000000';
+      ctx.fillRect(x, y, size, size);
+    }
+    ctx.globalAlpha = 1.0;
     
     // Calculate grid cell size
     const cellSize = textureSize / resolution;
     
-    // Draw grid lines
-    ctx.strokeStyle = '#ff00cc';
-    ctx.lineWidth = 2;
+    // Draw grid lines with glow effect
+    const drawGridLine = (x1, y1, x2, y2, color) => {
+      // Draw glow
+      ctx.globalAlpha = 0.2;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 10;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+      
+      // Draw main line
+      ctx.globalAlpha = 1.0;
+      ctx.shadowBlur = 0;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+    };
     
-    // Draw horizontal grid lines
+    // Draw horizontal grid lines with gradient color
     for (let i = 0; i <= resolution; i++) {
       const y = i * cellSize;
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(textureSize, y);
-      ctx.stroke();
+      const progress = i / resolution;
+      
+      // Create a gradient color based on position
+      let color;
+      if (progress < 0.33) {
+        color = '#ff00cc'; // Pink at top
+      } else if (progress < 0.66) {
+        color = '#cc33ff'; // Purple in middle
+      } else {
+        color = '#3366ff'; // Blue at bottom
+      }
+      
+      drawGridLine(0, y, textureSize, y, color);
     }
     
-    // Draw vertical grid lines
+    // Draw vertical grid lines with gradient color
     for (let i = 0; i <= resolution; i++) {
       const x = i * cellSize;
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, textureSize);
-      ctx.stroke();
+      const progress = i / resolution;
+      
+      // Create a gradient color based on position
+      let color;
+      if (progress < 0.33) {
+        color = '#ff3366'; // Red on left
+      } else if (progress < 0.66) {
+        color = '#ff33cc'; // Pink in middle
+      } else {
+        color = '#cc33ff'; // Purple on right
+      }
+      
+      drawGridLine(x, 0, x, textureSize, color);
     }
     
     // Create texture from canvas
@@ -744,7 +803,7 @@ class GameEngine {
     return texture;
   }
   
-  // Create displacement map for terrain
+  // Create displacement map for terrain with bumps and texture
   createDisplacementMap(resolution) {
     const textureSize = 1024;
     const canvas = document.createElement('canvas');
@@ -752,19 +811,86 @@ class GameEngine {
     canvas.height = textureSize;
     const ctx = canvas.getContext('2d');
     
-    // Fill with black (no displacement)
+    // Fill with black (base displacement)
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, textureSize, textureSize);
     
     // Create gradient for sides to be higher
     const gradient = ctx.createLinearGradient(0, 0, textureSize, 0);
     gradient.addColorStop(0, '#ffffff'); // High on the left
-    gradient.addColorStop(0.3, '#000000'); // Low in the middle (30%)
-    gradient.addColorStop(0.7, '#000000'); // Low in the middle (70%)
+    gradient.addColorStop(0.3, '#111111'); // Lower in the middle (30%)
+    gradient.addColorStop(0.7, '#111111'); // Lower in the middle (70%)
     gradient.addColorStop(1, '#ffffff'); // High on the right
     
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, textureSize, textureSize);
+    
+    // Add random mountains and bumps
+    const cellSize = textureSize / resolution;
+    const noiseScale = 0.05; // Scale of the noise
+    
+    // Add terrain features
+    for (let y = 0; y < resolution; y++) {
+      for (let x = 0; x < resolution; x++) {
+        // Skip the middle path for a flat runway
+        if (x > resolution * 0.4 && x < resolution * 0.6) continue;
+        
+        // Generate mountain ranges on sides
+        const distanceFromCenter = Math.abs(x - resolution/2) / (resolution/2);
+        const mountainProbability = Math.pow(distanceFromCenter, 1.5) * 0.7;
+        
+        if (Math.random() < mountainProbability) {
+          // Create a mountain
+          const mountainSize = 2 + Math.floor(Math.random() * 3);
+          const height = 100 + Math.random() * 155;
+          
+          // Draw mountain using radial gradient
+          const centerX = x * cellSize + cellSize/2;
+          const centerY = y * cellSize + cellSize/2;
+          const radius = mountainSize * cellSize;
+          
+          const mountainGradient = ctx.createRadialGradient(
+            centerX, centerY, 0,
+            centerX, centerY, radius
+          );
+          
+          // Create peaked mountain shape
+          mountainGradient.addColorStop(0, `rgba(255, 255, 255, ${height/255})`);
+          mountainGradient.addColorStop(0.7, 'rgba(50, 50, 50, 0.2)');
+          mountainGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          
+          ctx.fillStyle = mountainGradient;
+          ctx.beginPath();
+          ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+    
+    // Add small bumps throughout the terrain for texture
+    for (let i = 0; i < textureSize * 0.2; i++) {
+      const x = Math.random() * textureSize;
+      const y = Math.random() * textureSize;
+      const size = 2 + Math.random() * 10;
+      
+      // Don't add bumps in the center path
+      const normalizedX = x / textureSize;
+      if (normalizedX > 0.4 && normalizedX < 0.6) continue;
+      
+      // Create small bump
+      const bumpGradient = ctx.createRadialGradient(
+        x, y, 0,
+        x, y, size
+      );
+      
+      bumpGradient.addColorStop(0, 'rgba(200, 200, 200, 0.3)');
+      bumpGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      
+      ctx.fillStyle = bumpGradient;
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, Math.PI * 2);
+      ctx.fill();
+    }
     
     // Create texture from canvas
     const texture = new THREE.CanvasTexture(canvas);
