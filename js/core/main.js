@@ -86,8 +86,8 @@ class GameEngine {
     this.camera = new THREE.PerspectiveCamera(
       75, window.innerWidth / window.innerHeight, 0.1, 30000 // Higher FOV for vaporwave style
     );
-    // Position camera extremely high above the grid for optimal vaporwave view
-    this.camera.position.set(0, 1500, 1200); // Extremely high above ground, looking down the infinite grid
+    // Position camera at maximum height for best tactical overview
+    this.camera.position.set(0, 3000, 1200); // Much higher above ground for a superior tactical view
     this.camera.lookAt(0, 0, -CONFIG.terrain.height * 0.5); // Look ahead down the grid
     
     // Store initial camera state for orbital controls
@@ -398,8 +398,8 @@ class GameEngine {
       this.updateCameraPosition();
     }
     
-    // Reset position directly if needed - use extremely high camera position
-    this.camera.position.copy(this.initialCameraPosition || new THREE.Vector3(0, 1500, 1200));
+    // Reset position directly if needed - use maximum height camera position
+    this.camera.position.copy(this.initialCameraPosition || new THREE.Vector3(0, 3000, 1200));
     this.camera.lookAt(this.initialCameraTarget || new THREE.Vector3(0, 0, -CONFIG.terrain.height * 0.5));
     
     console.log("Camera reset to vaporwave view position");
@@ -2844,8 +2844,8 @@ class GameEngine {
       this.cameraState.zoom = 1.0;
       this.cameraState.rotationAngle = 0;
       
-      // Set camera position for better 3D terrain view
-      this.camera.position.set(0, -1500, 2000);
+      // Set camera position for better tactical overview
+      this.camera.position.set(0, 3000, 2000);
       this.camera.lookAt(this.cameraState.target);
       
       this.showAlert('Camera reset to terrain overview position', 'info');
