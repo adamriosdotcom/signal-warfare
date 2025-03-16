@@ -2321,20 +2321,46 @@ class GameEngine {
   
   // Update mouse world position based on current mouse screen position
   updateMouseWorldPosition() {
+    // Skip if terrain isn't initialized yet
+    if (!this.terrain || !this.terrain2) {
+      // Use a default placement plane until terrain is ready
+      this.mouse.worldPosition = this.mouse.worldPosition || { x: 0, y: 0, z: 0 };
+      return;
+    }
+    
     // Create ray from mouse position
     const raycaster = new THREE.Raycaster();
     raycaster.setFromCamera(this.mouse.position, this.camera);
     
-    // Check intersection with terrain (try both terrains)
-    const intersects = raycaster.intersectObjects([this.terrain, this.terrain2]);
-    
-    if (intersects.length > 0) {
-      // Update world position
-      this.mouse.worldPosition = intersects[0].point;
+    try {
+      // Check intersection with terrain (try both terrains)
+      const terrainObjects = [this.terrain, this.terrain2].filter(obj => obj && obj.type === 'Mesh');
       
-      // Adjust Y position to account for terrain height adjustment
-      // We need to add a small offset to ensure jammers are placed on top of the terrain
-      this.mouse.worldPosition.y += 5; // Add 5 units offset to ensure visibility
+      if (terrainObjects.length === 0) {
+        console.warn('No valid terrain objects found for raycasting');
+        return;
+      }
+      
+      const intersects = raycaster.intersectObjects(terrainObjects);
+      
+      if (intersects.length > 0) {
+        // Update world position
+        this.mouse.worldPosition = intersects[0].point;
+        
+        // Adjust Y position to account for terrain height adjustment
+        // We need to add a small offset to ensure jammers are placed on top of the terrain
+        this.mouse.worldPosition.y += 5; // Add 5 units offset to ensure visibility
+      } else {
+        // Fallback if no terrain intersection
+        const distance = 1000; // Distance from camera to placement plane
+        const vector = new THREE.Vector3(this.mouse.position.x, this.mouse.position.y, 0.5).unproject(this.camera);
+        const direction = vector.sub(this.camera.position).normalize();
+        const rayLength = (distance - this.camera.position.y) / direction.y;
+        this.mouse.worldPosition = this.camera.position.clone().add(direction.multiplyScalar(rayLength));
+      }
+    } catch (error) {
+      console.warn('Error during mouse position calculation:', error.message);
+      // Don't overwrite existing world position if we encounter an error
     }
   }
   
