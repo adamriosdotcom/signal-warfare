@@ -23,6 +23,7 @@ class GameEngine {
     // Game loop
     this.lastTime = 0;
     this.isRunning = false;
+    this.lastUIUpdateTime = 0; // Track when UI was last updated
     
     // Input state
     this.keys = {};
@@ -549,6 +550,58 @@ class GameEngine {
     
     // Initialize panel positions
     this.initializePanelPositions();
+    
+    // Share game state with the UI
+    window.gameState = gameState;
+    
+    // Share game assets with the UI
+    this.updateUIAssets();
+  }
+  
+  // Update UI with current game assets
+  updateUIAssets() {
+    // Collect all assets from ECS
+    if (!this.ecs) return;
+    
+    // Get all entities that have a Position component
+    const assets = [];
+    const entities = this.ecs.getEntitiesWithComponents(['Position']);
+    
+    entities.forEach(entity => {
+      const position = this.ecs.getComponent(entity, 'Position');
+      const type = this.ecs.getComponent(entity, 'Type')?.value || 'UNKNOWN';
+      const name = this.ecs.getComponent(entity, 'Name')?.value || `${type}-${entity}`;
+      const jammer = this.ecs.getComponent(entity, 'Jammer');
+      const active = this.ecs.getComponent(entity, 'Active')?.value ?? true;
+      
+      assets.push({
+        id: entity,
+        type: type,
+        name: name,
+        position: position,
+        active: active,
+        power: jammer?.power || 30,
+        antennaType: jammer?.antennaType || 'OMNI',
+        heading: jammer?.heading || 0
+      });
+    });
+    
+    // Make assets available globally for UI components
+    window.assets = assets;
+    
+    // Update tactical map with new assets
+    if (typeof updateTacticalMap === 'function') {
+      updateTacticalMap(gameState, assets);
+    }
+    
+    // Update counters in the UI
+    const jammerCount = assets.filter(a => a.type === 'JAMMER').length;
+    const droneCount = assets.filter(a => a.type === 'DRONE').length;
+    
+    document.getElementById('jammer-count').textContent = jammerCount;
+    document.getElementById('drone-count').textContent = droneCount;
+    document.getElementById('available-jammers').textContent = 
+      CONFIG.mission.defaultAssets.jammers.STANDARD - jammerCount;
   }
   
   // Panel positions are now defined in CSS
@@ -3278,6 +3331,17 @@ class GameEngine {
         object.userData.update(deltaTime, object);
       }
     });
+    
+    // Update UI components (tactical map, etc.) every second
+    // Only update if more than 1 second has passed since last update
+    const UI_UPDATE_INTERVAL = 1000; // Update once per second
+    if (now - this.lastUIUpdateTime > UI_UPDATE_INTERVAL) {
+      // Update UI with current game state and assets
+      this.updateUIAssets();
+      
+      // Update the timestamp
+      this.lastUIUpdateTime = now;
+    }
     
     // Update vaporwave terrain animation only during intro before user interaction
     if (this.terrain && this.terrain2 && this.terrainHeight && this.introAnimationActive) {

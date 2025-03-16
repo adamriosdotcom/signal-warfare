@@ -16,8 +16,14 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize asset panel tabs
   initAssetPanelTabs();
   
+  // Initialize map layer toggles
+  initMapLayerToggles();
+  
   // Initialize panel dragging
   initPanelDragging();
+  
+  // Initialize tactical map
+  updateTacticalMap(window.gameState, window.assets || []);
   
   // Initialize spectrum analyzer
   updateSpectrumAnalyzer();
@@ -25,10 +31,16 @@ document.addEventListener('DOMContentLoaded', () => {
   // Set up animation loop for spectrum to show dynamic changes
   animateSpectrum();
   
+  // Set up animation loop for tactical map (slower refresh rate)
+  animateTacticalMap();
+  
   // Handle window resize
   window.addEventListener('resize', () => {
     // Update spectrum analyzer on window resize
     updateSpectrumAnalyzer();
+    
+    // Update tactical map on window resize
+    updateTacticalMap(window.gameState, window.assets || []);
   });
 });
 
@@ -62,6 +74,21 @@ function initAssetPanelTabs() {
       // Show the corresponding content (placeholder for now)
       // In the future, we'll show/hide different content sections based on the tab
       console.log(`Selected tab: ${tab.dataset.tab}`);
+    });
+  });
+}
+
+// Initialize map layer toggles
+function initMapLayerToggles() {
+  const mapToggles = document.querySelectorAll('.map-toggle');
+  
+  mapToggles.forEach(toggle => {
+    toggle.addEventListener('click', () => {
+      // Toggle active state
+      toggle.classList.toggle('active');
+      
+      // Update the tactical map when layers change
+      updateTacticalMap(window.gameState, window.assets || []);
     });
   });
 }
@@ -143,10 +170,485 @@ function showAlert(message, type = 'info') {
 // Expose showAlert to window for global access
 window.showAlert = showAlert;
 
+// Tactical Map Cache
+const tacticalMapCache = {
+  terrainGrid: null,
+  lastWidth: 0,
+  lastHeight: 0
+};
+
 // Update tactical map
-function updateTacticalMap() {
-  // Implementation will be added in Phase 2
-  console.log('Updating tactical map');
+function updateTacticalMap(gameState = {}, assets = []) {
+  const mapContainer = document.getElementById('map-container');
+  const canvas = document.getElementById('map-canvas');
+  if (!mapContainer || !canvas) return;
+  
+  // Set canvas size to match container
+  const width = mapContainer.clientWidth;
+  const height = mapContainer.clientHeight;
+  canvas.width = width;
+  canvas.height = height;
+  
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  
+  // Get active layers
+  const showTerrain = document.querySelector('[data-layer="terrain"]').classList.contains('active');
+  const showRF = document.querySelector('[data-layer="rf"]').classList.contains('active');
+  const showEnemy = document.querySelector('[data-layer="enemy"]').classList.contains('active');
+  
+  // Clear canvas
+  ctx.clearRect(0, 0, width, height);
+  
+  // Draw background
+  drawMapBackground(ctx, width, height);
+  
+  // Draw terrain if active
+  if (showTerrain) {
+    drawTerrainLayer(ctx, width, height);
+  }
+  
+  // Draw RF propagation if active
+  if (showRF) {
+    drawRFLayer(ctx, width, height, assets);
+  }
+  
+  // Draw assets (jammers, drones, etc.)
+  drawAssets(ctx, width, height, assets);
+  
+  // Draw enemy positions if active
+  if (showEnemy) {
+    drawEnemyLayer(ctx, width, height, gameState);
+  }
+  
+  // Draw grid overlay
+  drawGridOverlay(ctx, width, height);
+  
+  // Draw coordinates and scale indicator
+  drawCoordinatesAndScale(ctx, width, height);
+}
+
+// Draw the map background
+function drawMapBackground(ctx, width, height) {
+  // Fill with dark background
+  const bgGradient = ctx.createLinearGradient(0, 0, 0, height);
+  bgGradient.addColorStop(0, '#0a1410'); // Very dark greenish
+  bgGradient.addColorStop(1, '#0c1116'); // Match background color
+  ctx.fillStyle = bgGradient;
+  ctx.fillRect(0, 0, width, height);
+}
+
+// Draw terrain features
+function drawTerrainLayer(ctx, width, height) {
+  // Check if we can use cached terrain
+  if (tacticalMapCache.terrainGrid && 
+      tacticalMapCache.lastWidth === width && 
+      tacticalMapCache.lastHeight === height) {
+    ctx.putImageData(tacticalMapCache.terrainGrid, 0, 0);
+    return;
+  }
+  
+  // Generate terrain features
+  // Use perlin-like noise for terrain elevation
+  const resolution = 60; // Number of grid cells
+  const cellSizeX = width / resolution;
+  const cellSizeY = height / resolution;
+  
+  // Draw terrain elevation using a heatmap style
+  for (let x = 0; x < resolution; x++) {
+    for (let y = 0; y < resolution; y++) {
+      // Calculate noise value (simplified perlin-like noise)
+      const noiseX = x / resolution;
+      const noiseY = y / resolution;
+      const elevation = simplexNoise(noiseX * 5, noiseY * 5);
+      
+      // Assign terrain type based on elevation
+      let color;
+      let alpha = 0.7;
+      
+      if (elevation < -0.4) {
+        // Water
+        color = '#103155'; // Deep blue
+        alpha = 0.8;
+      } else if (elevation < -0.2) {
+        // Shallow water
+        color = '#144b7f'; // Medium blue
+        alpha = 0.75;
+      } else if (elevation < 0.1) {
+        // Lowland / plains
+        color = '#103322'; // Dark green
+        alpha = 0.6;
+      } else if (elevation < 0.3) {
+        // Hills
+        color = '#164422'; // Medium green
+        alpha = 0.65;
+      } else if (elevation < 0.5) {
+        // Mountains
+        color = '#2d3b2e'; // Gray-green
+        alpha = 0.7;
+      } else {
+        // High mountains
+        color = '#444940'; // Gray
+        alpha = 0.75;
+      }
+      
+      // Draw the cell
+      ctx.fillStyle = color;
+      ctx.globalAlpha = alpha;
+      ctx.fillRect(x * cellSizeX, y * cellSizeY, cellSizeX, cellSizeY);
+    }
+  }
+  
+  // Reset alpha
+  ctx.globalAlpha = 1.0;
+  
+  // Add some geographic features
+  
+  // Rivers (simplified)
+  ctx.strokeStyle = '#1a66a0';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  
+  // Main river path
+  const riverPoints = [
+    { x: width * 0.1, y: height * 0.2 },
+    { x: width * 0.3, y: height * 0.3 },
+    { x: width * 0.5, y: height * 0.5 },
+    { x: width * 0.6, y: height * 0.8 }
+  ];
+  
+  ctx.moveTo(riverPoints[0].x, riverPoints[0].y);
+  
+  // Draw curves between points
+  for (let i = 0; i < riverPoints.length - 1; i++) {
+    const xMid = (riverPoints[i].x + riverPoints[i+1].x) / 2;
+    const yMid = (riverPoints[i].y + riverPoints[i+1].y) / 2;
+    ctx.quadraticCurveTo(riverPoints[i].x, riverPoints[i].y, xMid, yMid);
+  }
+  
+  ctx.quadraticCurveTo(
+    riverPoints[riverPoints.length-1].x,
+    riverPoints[riverPoints.length-1].y,
+    width * 0.7,
+    height * 0.9
+  );
+  
+  // Draw river with glow effect
+  ctx.shadowColor = '#1a66a0';
+  ctx.shadowBlur = 4;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  
+  // Add a lake
+  ctx.fillStyle = '#1a66a0';
+  ctx.beginPath();
+  ctx.ellipse(width * 0.4, height * 0.4, width * 0.05, height * 0.04, 0, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Cache the terrain
+  tacticalMapCache.terrainGrid = ctx.getImageData(0, 0, width, height);
+  tacticalMapCache.lastWidth = width;
+  tacticalMapCache.lastHeight = height;
+}
+
+// Draw RF signal propagation visualization
+function drawRFLayer(ctx, width, height, assets) {
+  // Only draw if we have jammers or transmitters
+  const jammers = assets.filter(asset => asset.type === 'JAMMER' && asset.active);
+  
+  if (jammers.length === 0) return;
+  
+  // Draw RF coverage for each jammer
+  jammers.forEach(jammer => {
+    // Draw coverage circle
+    const x = width * (jammer.position.x / CONFIG.terrain.width + 0.5);
+    const y = height * (jammer.position.z / CONFIG.terrain.height + 0.5);
+    
+    // Define radius based on jammer power
+    const power = jammer.power || 30; // Default power if not specified
+    const radius = Math.min(width, height) * (power / 100);
+    
+    // Create gradient for signal strength
+    const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+    gradient.addColorStop(0, 'rgba(255, 70, 85, 0.4)'); // Red core
+    gradient.addColorStop(0.5, 'rgba(255, 70, 85, 0.15)');
+    gradient.addColorStop(1, 'rgba(255, 70, 85, 0)'); // Transparent edge
+    
+    // Draw signal
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Draw directional pattern if appropriate
+    if (jammer.antennaType === 'directional' && jammer.heading !== undefined) {
+      // Draw directive pattern
+      ctx.fillStyle = 'rgba(255, 222, 89, 0.15)';
+      ctx.beginPath();
+      ctx.arc(x, y, radius * 0.7, jammer.heading - Math.PI/4, jammer.heading + Math.PI/4);
+      ctx.lineTo(x, y);
+      ctx.closePath();
+      ctx.fill();
+    }
+  });
+}
+
+// Draw friendly assets (jammers, drones, etc.)
+function drawAssets(ctx, width, height, assets) {
+  if (!assets || assets.length === 0) return;
+  
+  // Map device types to symbols and colors
+  const assetSymbols = {
+    JAMMER: { symbol: '◆', color: '#ff4655', size: 12 },
+    DRONE: { symbol: '▲', color: '#36f9b3', size: 10 },
+    SENSOR: { symbol: '◉', color: '#00b8d4', size: 10 }
+  };
+  
+  // Draw each asset
+  assets.forEach(asset => {
+    // Convert world coordinates to map coordinates
+    const x = width * (asset.position.x / CONFIG.terrain.width + 0.5);
+    const y = height * (asset.position.z / CONFIG.terrain.height + 0.5);
+    
+    // Get symbol info
+    const symbolInfo = assetSymbols[asset.type] || { symbol: '■', color: '#ffffff', size: 10 };
+    
+    // Draw symbol
+    ctx.font = `bold ${symbolInfo.size}px var(--font-mono, monospace)`;
+    ctx.fillStyle = symbolInfo.color;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    // Add shadow for better visibility
+    ctx.shadowColor = 'rgba(0,0,0,0.7)';
+    ctx.shadowBlur = 3;
+    ctx.fillText(symbolInfo.symbol, x, y);
+    ctx.shadowBlur = 0;
+    
+    // Add label if not too many assets
+    if (assets.length < 10) {
+      ctx.font = `8px var(--font-mono, monospace)`;
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      ctx.fillText(asset.name || asset.type.slice(0,3), x, y + 15);
+    }
+    
+    // If it's active, add a subtle glowing circle
+    if (asset.active) {
+      ctx.strokeStyle = symbolInfo.color;
+      ctx.globalAlpha = 0.4;
+      ctx.beginPath();
+      ctx.arc(x, y, 10, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 1.0;
+    }
+  });
+}
+
+// Draw enemy positions
+function drawEnemyLayer(ctx, width, height, gameState) {
+  // Draw known enemy positions
+  // This would normally come from gameState.enemyPositions or similar
+  
+  // For demonstration, add some dummy enemy positions
+  const enemyPositions = [
+    { x: 0.2, y: 0.3, type: 'PATROL' },
+    { x: 0.7, y: 0.2, type: 'DRONE' },
+    { x: 0.8, y: 0.7, type: 'BASE' }
+  ];
+  
+  // Transform to actual coordinates
+  enemyPositions.forEach(enemy => {
+    const x = width * enemy.x;
+    const y = height * enemy.y;
+    
+    // Draw enemy marker - red X
+    ctx.strokeStyle = '#ff4655';  // Red
+    ctx.lineWidth = 2;
+    
+    const markerSize = 8;
+    
+    // Draw X
+    ctx.beginPath();
+    ctx.moveTo(x - markerSize, y - markerSize);
+    ctx.lineTo(x + markerSize, y + markerSize);
+    ctx.moveTo(x + markerSize, y - markerSize);
+    ctx.lineTo(x - markerSize, y + markerSize);
+    
+    // Add shadow/glow effect
+    ctx.shadowColor = '#ff4655';
+    ctx.shadowBlur = 4;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    
+    // Add label
+    ctx.font = '8px var(--font-mono, monospace)';
+    ctx.fillStyle = '#ff4655';
+    ctx.textAlign = 'center';
+    ctx.fillText(enemy.type, x, y + 15);
+  });
+}
+
+// Draw grid overlay
+function drawGridOverlay(ctx, width, height) {
+  ctx.strokeStyle = 'rgba(54, 249, 179, 0.15)';
+  ctx.lineWidth = 0.5;
+  
+  // Draw grid lines
+  const gridSize = 40; // Pixels between grid lines
+  
+  // Vertical lines
+  for (let x = 0; x < width; x += gridSize) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, height);
+    ctx.stroke();
+  }
+  
+  // Horizontal lines
+  for (let y = 0; y < height; y += gridSize) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(width, y);
+    ctx.stroke();
+  }
+}
+
+// Draw coordinates and scale
+function drawCoordinatesAndScale(ctx, width, height) {
+  // Draw coordinate frame
+  ctx.fillStyle = 'rgba(54, 249, 179, 0.7)';
+  ctx.font = '9px var(--font-mono, monospace)';
+  
+  // X-axis markers (only draw a few)
+  for (let i = 0; i <= 4; i++) {
+    const x = width * (i / 4);
+    const coordX = Math.round((i / 4 - 0.5) * CONFIG.terrain.width);
+    ctx.textAlign = 'center';
+    ctx.fillText(`${coordX}`, x, height - 5);
+  }
+  
+  // Y-axis markers (only draw a few)
+  for (let i = 0; i <= 4; i++) {
+    const y = height * (i / 4);
+    const coordY = Math.round((i / 4 - 0.5) * CONFIG.terrain.height);
+    ctx.textAlign = 'left';
+    ctx.fillText(`${coordY}`, 5, y);
+  }
+  
+  // Draw scale bar
+  const scaleBarWidth = 50;
+  const scaleBarHeight = 3;
+  const scaleText = "500m";
+  
+  ctx.fillStyle = 'rgba(54, 249, 179, 0.7)';
+  ctx.fillRect(width - scaleBarWidth - 10, height - 15, scaleBarWidth, scaleBarHeight);
+  
+  ctx.textAlign = 'right';
+  ctx.fillText(scaleText, width - 10, height - 20);
+}
+
+// Simplified Perlin noise approximation for terrain
+function simplexNoise(x, y) {
+  // Simple noise function for demo purposes
+  // In a real implementation, you'd use a proper noise library
+  return Math.sin(x * 10) * Math.cos(y * 8) * 0.5 + 
+         Math.sin(x * 4 + y * 3) * 0.3 +
+         Math.cos(x * 7 - y * 2) * 0.2;
+}
+
+// Animate tactical map
+function animateTacticalMap() {
+  // Track map panel visibility
+  let lastMapPanelState = false;
+  let lastUpdateTime = 0;
+  
+  // Create simulated demo assets if none exist yet
+  if (!window.assets || window.assets.length === 0) {
+    window.assets = [
+      {
+        type: 'JAMMER',
+        position: { x: CONFIG.terrain.width * 0.2, y: 10, z: CONFIG.terrain.height * 0.3 },
+        name: 'JAM-1',
+        active: true,
+        power: 40
+      },
+      {
+        type: 'JAMMER',
+        position: { x: CONFIG.terrain.width * -0.2, y: 10, z: CONFIG.terrain.height * -0.1 },
+        name: 'JAM-2',
+        active: true,
+        power: 30
+      },
+      {
+        type: 'DRONE',
+        position: { x: CONFIG.terrain.width * 0.3, y: 50, z: CONFIG.terrain.height * -0.2 },
+        name: 'DRONE-1',
+        active: true
+      }
+    ];
+  }
+  
+  // Setup game state if it doesn't exist
+  if (!window.gameState) {
+    window.gameState = {
+      missionActive: true,
+      currentPhase: 'INTEL',
+      enemyPositions: [
+        { x: 0.2, y: 0.3, type: 'PATROL' },
+        { x: 0.7, y: 0.2, type: 'DRONE' },
+        { x: 0.8, y: 0.7, type: 'BASE' }
+      ]
+    };
+  }
+  
+  function updateAnimation() {
+    // Only update at most once every second for performance
+    const now = Date.now();
+    const timeSinceLastUpdate = now - lastUpdateTime;
+    
+    // Check if map panel is visible
+    const mapPanel = document.getElementById('map-panel');
+    const isVisible = mapPanel && !mapPanel.classList.contains('minimized');
+    
+    // Only update every 1000ms if visible, and only if visibility changed
+    if ((isVisible && timeSinceLastUpdate > 1000) || (isVisible !== lastMapPanelState)) {
+      // Update tactical map
+      updateTacticalMap(window.gameState, window.assets);
+      
+      // Update drone positions for animation
+      if (window.assets) {
+        // Animate drone movement
+        window.assets.forEach(asset => {
+          if (asset.type === 'DRONE') {
+            // Add some movement
+            const time = now / 5000;
+            const radius = CONFIG.terrain.width * 0.05;
+            asset.position.x += Math.sin(time) * 5;
+            asset.position.z += Math.cos(time) * 5;
+            
+            // Keep within bounds
+            if (Math.abs(asset.position.x) > CONFIG.terrain.width * 0.5) {
+              asset.position.x = Math.sign(asset.position.x) * CONFIG.terrain.width * 0.45;
+            }
+            if (Math.abs(asset.position.z) > CONFIG.terrain.height * 0.5) {
+              asset.position.z = Math.sign(asset.position.z) * CONFIG.terrain.height * 0.45;
+            }
+          }
+        });
+      }
+      
+      lastUpdateTime = now;
+    }
+    
+    // Store current state
+    lastMapPanelState = isVisible;
+    
+    // Schedule next update
+    requestAnimationFrame(updateAnimation);
+  }
+  
+  // Start the animation loop
+  updateAnimation();
 }
 
 // Update spectrum analyzer
