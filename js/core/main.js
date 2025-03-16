@@ -86,8 +86,8 @@ class GameEngine {
     this.camera = new THREE.PerspectiveCamera(
       75, window.innerWidth / window.innerHeight, 0.1, 30000 // Higher FOV for vaporwave style
     );
-    // Position camera much higher above the grid for better vaporwave view
-    this.camera.position.set(0, 800, 1200); // Much higher above ground, looking down the infinite grid
+    // Position camera extremely high above the grid for optimal vaporwave view
+    this.camera.position.set(0, 1500, 1200); // Extremely high above ground, looking down the infinite grid
     this.camera.lookAt(0, 0, -CONFIG.terrain.height * 0.5); // Look ahead down the grid
     
     // Store initial camera state for orbital controls
@@ -398,8 +398,8 @@ class GameEngine {
       this.updateCameraPosition();
     }
     
-    // Reset position directly if needed - use higher camera position
-    this.camera.position.copy(this.initialCameraPosition || new THREE.Vector3(0, 800, 1200));
+    // Reset position directly if needed - use extremely high camera position
+    this.camera.position.copy(this.initialCameraPosition || new THREE.Vector3(0, 1500, 1200));
     this.camera.lookAt(this.initialCameraTarget || new THREE.Vector3(0, 0, -CONFIG.terrain.height * 0.5));
     
     console.log("Camera reset to vaporwave view position");
@@ -587,14 +587,14 @@ class GameEngine {
     // Create primary terrain mesh
     this.terrain = new THREE.Mesh(geometry, material);
     this.terrain.rotation.x = -Math.PI / 2; // Rotate to face up
-    this.terrain.position.y = -100; // Lower position to ensure it's well below camera
+    this.terrain.position.y = -200; // Much lower position to ensure it's well below camera
     this.terrain.position.z = 0;
     this.terrain.receiveShadow = true;
     
     // Create second terrain for infinite scrolling effect
     this.terrain2 = new THREE.Mesh(geometry, material);
     this.terrain2.rotation.x = -Math.PI / 2;
-    this.terrain2.position.y = -100; // Same lower position as first terrain
+    this.terrain2.position.y = -200; // Same much lower position as first terrain
     this.terrain2.position.z = -this.terrainHeight; // Position behind first terrain
     this.terrain2.receiveShadow = true;
     
